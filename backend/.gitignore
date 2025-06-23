@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment config
+.env
+
+# Flask instance folder
+instance/
+
+# SQLite DB (if not tracked)
+*.sqlite3
+*.db
+
+# Flask-Migrate folder (optional)
+migrations/
+
+# Logs
+*.log
