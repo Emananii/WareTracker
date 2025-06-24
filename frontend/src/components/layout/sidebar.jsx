@@ -6,6 +6,7 @@ import {
   Truck,
   BarChart3,
   Warehouse,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ const navigation = [
   { name: "Purchases", href: "/purchases", icon: ShoppingCart },
   { name: "Movements", href: "/movements", icon: Truck },
   { name: "Businesses", href: "/businesses", icon: Warehouse },
+  { name: "Suppliers", href: "/suppliers", icon: Factory }, // ✅ Added this line
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 

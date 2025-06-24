@@ -16,6 +16,8 @@ import Movements from "@/pages/movements";
 import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
+import Suppliers from "@/pages/suppliers";
+
 
 import { Menu, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,7 @@ function Router() {
       <Route path="/purchases" component={Purchases} />
       <Route path="/movements" component={Movements} />
       <Route path="/businesses" component={Businesses} />
+      <Route path="/suppliers" component={Suppliers} />
       <Route path="/reports" component={Reports} />
       <Route component={NotFound} />
     </Switch>
