@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Inventory", href: "/inventory", icon: Package },
+  { name: "Categories", href: "/categories", icon: Package }, // Added Categories
   { name: "Purchases", href: "/purchases", icon: ShoppingCart },
   { name: "Movements", href: "/movements", icon: Truck },
   { name: "Businesses", href: "/businesses", icon: Warehouse },

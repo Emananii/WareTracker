@@ -15,6 +15,7 @@ import Purchases from "@/pages/purchases";
 import Movements from "@/pages/movements";
 import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
+import Categories from "@/pages/categories";  // Import the Categories page
 import NotFound from "@/pages/not-found";
 
 import { Menu, Bell, User } from "lucide-react";
@@ -71,6 +72,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/inventory" component={Inventory} />
+      <Route path="/categories" component={Categories} /> {/* Added Categories Route */}
       <Route path="/purchases" component={Purchases} />
       <Route path="/movements" component={Movements} />
       <Route path="/businesses" component={Businesses} />
