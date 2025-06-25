@@ -17,22 +17,56 @@ import EditSupplierModal from "@/components/suppliers/edit-supplier-modal";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// MOCK MODE toggle
+const MOCK_MODE = true;
+
+const mockSuppliers = [
+  {
+    id: 1,
+    name: "Acme Supplies Ltd",
+    contact: "Jane Doe",
+    address: "123 Industrial Area, Nairobi",
+  },
+  {
+    id: 2,
+    name: "Global Traders Co.",
+    contact: "John Smith",
+    address: "45 Warehouse Road, Mombasa",
+  },
+  {
+    id: 3,
+    name: "FreshFoods Warehouse",
+    contact: "Alice Wanjiru",
+    address: "789 Food Street, Kisumu",
+  },
+  {
+    id: 4,
+    name: "TechGear Importers",
+    contact: "Michael Otieno",
+    address: "Plot 66, Thika Highway",
+  },
+];
+
 export default function Suppliers() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
+  // Real data fetch
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["/api/suppliers"],
+    enabled: !MOCK_MODE,
   });
 
-  const filteredSuppliers = suppliers.filter((supplier) =>
+  const displayedSuppliers = MOCK_MODE ? mockSuppliers : suppliers;
+
+  const filteredSuppliers = displayedSuppliers.filter((supplier) =>
     supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (supplier.address && supplier.address.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  if (isLoading) {
+  if (!MOCK_MODE && isLoading) {
     return (
       <div className="space-y-6">
         <Card className="animate-pulse">
@@ -75,7 +109,7 @@ export default function Suppliers() {
         </CardContent>
       </Card>
 
-      {/* Suppliers Grid */}
+      {/* Supplier Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSuppliers.length > 0 ? (
           filteredSuppliers.map((supplier) => (

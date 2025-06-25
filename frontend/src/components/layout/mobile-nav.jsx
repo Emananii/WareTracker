@@ -7,15 +7,18 @@ import {
   BarChart3,
   Warehouse,
   X,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+// Updated navigation list with "Suppliers"
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Inventory", href: "/inventory", icon: Package },
   { name: "Purchases", href: "/purchases", icon: ShoppingCart },
-  { name: "Movements", href: "/movements", icon: Truck },
+  { name: "Suppliers", href: "/suppliers", icon: Truck }, // 👈 Added here
+  { name: "Movements", href: "/movements", icon: Users },
   { name: "Businesses", href: "/businesses", icon: Warehouse },
   { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
