@@ -27,12 +27,13 @@ def create_product():
         new_product = Product(
             name=data["name"],
             sku=data.get("sku"),
-            unit=data.get("unit"),
-            description=data.get("description"),
+            quantity=data.get("quantity", 0),  # default to 0 if not provided
+            location=data.get("location"),  # location can be null
             category_id=data["category_id"]
         )
         db.session.add(new_product)
         db.session.commit()
+        return jsonify(new_product.to_dict()), 201
 
     except KeyError as e:
         return jsonify({"error": f"Missing field: {str(e)}"}), 400
@@ -48,7 +49,7 @@ def update_product(id):
         return jsonify({"error": "Product not found"}), 404
 
     data = request.get_json()
-    for field in ["name", "sku", "unit", "description", "category_id"]:
+    for field in ["name", "sku", "quantity", "location", "category_id"]:
         if field in data:
             setattr(product, field, data[field])
 
