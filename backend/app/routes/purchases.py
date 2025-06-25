@@ -12,9 +12,18 @@ def get_purchases():
     purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
     return jsonify([p.to_dict() for p in purchases]), 200
 
+# ✅ GET a single purchase with items + supplier info
+@purchases_bp.route("/<int:id>", methods=["GET"])
+def get_single_purchase(id):
+    purchase = Purchase.query.get(id)
+    if not purchase:
+        return jsonify({"error": "Purchase not found"}), 404
+
+    return jsonify(purchase.to_dict()), 200
+
 
 # POST a new purchase
-@purchases_bp.route("/", methods=["POST"])
+@purchases_bp.route("", methods=["POST"])
 def create_purchase():
     data = request.get_json()
 

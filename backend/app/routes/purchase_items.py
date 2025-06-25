@@ -21,6 +21,7 @@ def get_purchase_item(id):
 @purchase_item_bp.route("/purchase_items", methods=["POST"])
 def create_purchase_item():
     data = request.get_json()
+    print("Incoming data:", data)
     try:
         purchase_id = data["purchase_id"]
         product_id = data["product_id"]

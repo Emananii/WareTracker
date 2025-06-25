@@ -71,15 +71,23 @@ with app.app_context():
 
     print("🧾 Seeding purchases...")
     purchases = []
-    for i in range(5):
+
+    for i in range(8):
+        # First 3 are older than 30 days
+        if i < 3:
+            days_ago = random.randint(31, 90)
+        else:
+            days_ago = random.randint(0, 29)
+
         purchase = Purchase(
-            supplier_id=suppliers[i].id,
-            purchase_date=datetime.utcnow() - timedelta(days=random.randint(0, 30)),
+            supplier_id=suppliers[i % len(suppliers)].id,
+            purchase_date=datetime.utcnow() - timedelta(days=days_ago),
             total_cost=0.0,
             notes=f"Generated purchase {i+1}"
         )
         db.session.add(purchase)
         purchases.append(purchase)
+
     db.session.commit()
 
     print("📋 Seeding purchase items...")
@@ -114,6 +122,7 @@ with app.app_context():
         )
         db.session.add(transfer)
         stock_transfers.append(transfer)
+
     db.session.commit()
 
     print("📦 Seeding stock transfer items...")
