@@ -14,18 +14,27 @@ export default function Categories() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(""); // State for search term
 
-  // Fetch categories
-  const { data: categories = [], isLoading } = useQuery({
+  // Mocked data for categories
+  const mockedCategories = [
+    { id: 1, name: "Electronics" },
+    { id: 2, name: "Groceries" },
+    { id: 3, name: "Furniture" },
+    { id: 4, name: "Toys" },
+  ];
+
+  // Replace the query with mocked data
+  const { data: categories = mockedCategories, isLoading } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/categories"); 
-      return response.categories || [];  // Ensure categories is always an array
+      // Here you would replace with your actual API request when ready
+      return mockedCategories; // Mocked data for now
     },
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id) => {
-      return apiRequest("DELETE", `/api/categories/${id}`);
+      // Here you would replace with the actual delete API request
+      return new Promise((resolve) => setTimeout(resolve, 500)); // Mocked delete action
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
