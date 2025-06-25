@@ -33,7 +33,6 @@ def create_product():
         )
         db.session.add(new_product)
         db.session.commit()
-        return jsonify(new_product.to_dict()), 201
 
     except KeyError as e:
         return jsonify({"error": f"Missing field: {str(e)}"}), 400
