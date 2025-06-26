@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { BASE_URL } from "./constants";
 
 // Internal error helper
 async function throwIfResNotOk(res) {
@@ -50,3 +51,4 @@ export const queryClient = new QueryClient({
     },
   },
 });
+

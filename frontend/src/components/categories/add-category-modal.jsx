@@ -8,9 +8,9 @@ import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
+import { BASE_URL } from "@/lib/constants"; // Import BASE_URL
 
 // AddCategoryModal.jsx
-
 export default function AddCategoryModal({ isOpen, onClose }) {
   const { toast } = useToast();
 
@@ -23,7 +23,8 @@ export default function AddCategoryModal({ isOpen, onClose }) {
 
   const addCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("POST", "/api/categories", data); // Ensure the backend accepts description
+      // Ensure the backend accepts description and base URL is used
+      return apiRequest("POST", `${BASE_URL}/categories`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
@@ -44,8 +45,8 @@ export default function AddCategoryModal({ isOpen, onClose }) {
   });
 
   const onSubmit = (data) => {
-    if (data.name.trim()) {
-      addCategoryMutation.mutate(data);
+    if (data.name.trim() && data.description.trim()) {
+      addCategoryMutation.mutate(data); // Ensure both name and description are sent
     }
   };
 

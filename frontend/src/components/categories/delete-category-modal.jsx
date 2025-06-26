@@ -3,33 +3,41 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {BASE_URL} from "@/lib/constants"; 
+
 
 export default function DeleteCategoryModal({ category, isOpen, onClose }) {
   const { toast } = useToast();
 
+  
+
+  // Mutation for deleting the category
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id) => {
-      return apiRequest("DELETE", `/api/categories/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+  return apiRequest("DELETE", `${BASE_URL}categories/${id}`);
+},
+     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] }); // Invalidate cached categories data
       toast({
         title: "Category Deleted",
-        description: "Category has been deleted successfully",
+        description: "Category has been deleted successfully", // Toast message on success
       });
-      onClose();
+      onClose(); // Close modal after success
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error.message || "Something went wrong",
+        description: error.message || "Something went wrong", // Toast message on error
         variant: "destructive",
       });
     },
   });
 
+  // Handle deletion when the user confirms
   const handleDelete = () => {
-    deleteCategoryMutation.mutate(category.id);
+    if (category?.id) {
+      deleteCategoryMutation.mutate(category.id); // Trigger the mutation with category ID
+    }
   };
 
   return (

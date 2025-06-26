@@ -6,26 +6,32 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { editCategorySchema } from "@/shared/schema";
+import { editCategorySchema } from "@/shared/schema"; 
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 export default function EditCategoryModal({ isOpen, onClose, category }) {
   const { toast } = useToast();
 
+  console.log("Category in EditCategoryModal:", category);
+  console.log("Category ID for PUT request:", category?.id);
+
   const form = useForm({
     defaultValues: {
       name: category?.name || "",
-      description: category?.description || "", // Add description to default values
+      description: category?.description || "",
     },
   });
 
   const editCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("PUT", `/api/categories/${category.id}`, data); // Ensure it sends description to backend
+      // ✅ Use full backend URL
+      return apiRequest("PUT", `${BASE_URL}categories/${category.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      // ✅ Invalidate using updated query key
+      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}categories`] });
       toast({
         title: "Success",
         description: "Category updated successfully!",
@@ -64,7 +70,6 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Category Name */}
             <FormField
               control={form.control}
               name="name"
@@ -79,7 +84,6 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
               )}
             />
 
-            {/* Category Description */}
             <FormField
               control={form.control}
               name="description"
@@ -95,12 +99,7 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
             />
 
             <div className="flex space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={onClose}
-              >
+              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
                 Cancel
               </Button>
               <Button
