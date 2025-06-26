@@ -3,13 +3,12 @@ from ..models import db, StockTransfer, BusinessLocation
 
 stock_transfer_bp = Blueprint("stock_transfer_bp", __name__)
 
-# GET /stock_transfers - List all stock transfers
 @stock_transfer_bp.route("/stock_transfers", methods=["GET"])
 def get_stock_transfers():
     transfers = StockTransfer.query.all()
     return jsonify([transfer.to_dict() for transfer in transfers]), 200
 
-# GET /stock_transfers/<int:id> - Get a specific stock transfer
+
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["GET"])
 def get_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
@@ -17,7 +16,6 @@ def get_stock_transfer(id):
         return jsonify({"error": "Stock transfer not found"}), 404
     return jsonify(transfer.to_dict()), 200
 
-# POST /stock_transfers - Create a new stock transfer
 @stock_transfer_bp.route("/stock_transfers", methods=["POST"])
 def create_stock_transfer():
     data = request.get_json()
@@ -26,7 +24,6 @@ def create_stock_transfer():
         notes = data.get("notes", "")
         date = data.get("date")
 
-        # Validate location
         location = BusinessLocation.query.get(location_id)
         if not location:
             return jsonify({"error": "Invalid location_id"}), 400
@@ -42,7 +39,6 @@ def create_stock_transfer():
     except KeyError as e:
         return jsonify({"error": f"Missing field: {str(e)}"}), 400
 
-# PUT /stock_transfers/<int:id> - Update a stock transfer
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["PUT"])
 def update_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
@@ -62,7 +58,6 @@ def update_stock_transfer(id):
     db.session.commit()
     return jsonify(transfer.to_dict()), 200
 
-# DELETE /stock_transfers/<int:id> - Delete a stock transfer
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["DELETE"])
 def delete_stock_transfer(id):
     transfer = StockTransfer.query.get(id)

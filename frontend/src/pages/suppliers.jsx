@@ -14,38 +14,8 @@ import {
 import { Search, Plus, Edit, Truck } from "lucide-react";
 import AddSupplierModal from "@/components/suppliers/add-supplier-modal";
 import EditSupplierModal from "@/components/suppliers/edit-supplier-modal";
-import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-// MOCK MODE toggle
-const MOCK_MODE = true;
-
-const mockSuppliers = [
-  {
-    id: 1,
-    name: "Acme Supplies Ltd",
-    contact: "Jane Doe",
-    address: "123 Industrial Area, Nairobi",
-  },
-  {
-    id: 2,
-    name: "Global Traders Co.",
-    contact: "John Smith",
-    address: "45 Warehouse Road, Mombasa",
-  },
-  {
-    id: 3,
-    name: "FreshFoods Warehouse",
-    contact: "Alice Wanjiru",
-    address: "789 Food Street, Kisumu",
-  },
-  {
-    id: 4,
-    name: "TechGear Importers",
-    contact: "Michael Otieno",
-    address: "Plot 66, Thika Highway",
-  },
-];
+import { BASE_URL } from "@/lib/constants";
 
 export default function Suppliers() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -53,25 +23,44 @@ export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
-  // Real data fetch
-  const { data: suppliers = [], isLoading } = useQuery({
-    queryKey: ["/api/suppliers"],
-    enabled: !MOCK_MODE,
+  const {
+    data: suppliers = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: [`${BASE_URL}/suppliers`],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/suppliers`);
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      return res.json();
+    },
   });
 
-  const displayedSuppliers = MOCK_MODE ? mockSuppliers : suppliers;
-
-  const filteredSuppliers = displayedSuppliers.filter((supplier) =>
-    supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (supplier.address && supplier.address.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredSuppliers = (Array.isArray(suppliers) ? suppliers : []).filter(
+    (supplier) =>
+      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (supplier.address && supplier.address.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  if (!MOCK_MODE && isLoading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <Card className="animate-pulse">
           <CardContent className="p-6">
             <div className="h-20 bg-gray-200 rounded" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6 text-red-500">
+            Error loading suppliers: {error.message}
           </CardContent>
         </Card>
       </div>

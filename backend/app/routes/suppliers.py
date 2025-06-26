@@ -4,15 +4,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 suppliers_bp = Blueprint("suppliers", __name__, url_prefix="/suppliers")
 
-# GET: /api/suppliers/
-
 @suppliers_bp.route("/", methods=["GET"])
 def get_suppliers():
     suppliers = Supplier.query.all()
     return jsonify([s.to_dict() for s in suppliers]), 200
 
-
-# POST: /api/suppliers/
 
 @suppliers_bp.route("/", methods=["POST"])
 def create_supplier():
@@ -32,7 +28,6 @@ def create_supplier():
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
-# PUT: /api/suppliers/<id>
 
 @suppliers_bp.route("/<int:id>", methods=["PUT"])
 def update_supplier(id):
@@ -50,8 +45,6 @@ def update_supplier(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
-
-# DELETE: /api/suppliers/<id>
 
 @suppliers_bp.route("/<int:id>", methods=["DELETE"])
 def delete_supplier(id):

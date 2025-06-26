@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { BASE_URL } from "@/lib/constants";
 
 import {
   Dialog,
@@ -34,7 +35,6 @@ import { X, Plus, Trash2 } from "lucide-react";
 import { insertPurchaseSchema } from "@/shared/schema";
 import { useState } from "react";
 
-// Schema extension
 const formSchema = insertPurchaseSchema.extend({
   supplierId: z.number().min(1, "Supplier is required"),
   items: z
@@ -52,11 +52,21 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
   const { toast } = useToast();
 
   const { data: suppliers = [] } = useQuery({
-    queryKey: ["/api/suppliers"],
+    queryKey: [`${BASE_URL}/suppliers`],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/suppliers`);
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      return res.json();
+    },
   });
 
   const { data: inventory = [] } = useQuery({
-    queryKey: ["/api/inventory"],
+    queryKey: [`${BASE_URL}/inventory`],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/inventory`);
+      if (!res.ok) throw new Error("Failed to fetch inventory");
+      return res.json();
+    },
   });
 
   const form = useForm({
@@ -161,9 +171,6 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Add New Purchase
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -178,7 +185,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                   <FormLabel>Supplier</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value?.toString()}
+                    value={field.value !== undefined ? field.value.toString() : ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -219,14 +226,9 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
               </div>
 
               {watchedItems.map((_, index) => (
-                <div
-                  key={index}
-                  className="border rounded-lg p-4 space-y-4"
-                >
+                <div key={index} className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-medium">
-                      Item {index + 1}
-                    </h5>
+                    <h5 className="text-sm font-medium">Item {index + 1}</h5>
                     {watchedItems.length > 1 && (
                       <Button
                         type="button"
@@ -251,7 +253,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                             onValueChange={(value) =>
                               field.onChange(parseInt(value))
                             }
-                            value={field.value?.toString()}
+                            value={field.value !== undefined ? field.value.toString() : ""}
                           >
                             <FormControl>
                               <SelectTrigger>

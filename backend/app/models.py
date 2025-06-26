@@ -5,7 +5,7 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-# ✅ Category
+
 class Category(db.Model, SerializerMixin):
     __tablename__ = "categories"
 
@@ -13,7 +13,8 @@ class Category(db.Model, SerializerMixin):
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text, nullable=True)
 
-    products = db.relationship("Product", backref="category", cascade="all, delete-orphan")
+    products = db.relationship(
+        "Product", backref="category", cascade="all, delete-orphan")
 
     serialize_rules = ("-products.category",)
 
@@ -25,7 +26,6 @@ class Category(db.Model, SerializerMixin):
         }
 
 
-# ✅ Supplier
 class Supplier(db.Model, SerializerMixin):
     __tablename__ = "suppliers"
 
@@ -97,7 +97,8 @@ class Purchase(db.Model, SerializerMixin):
         nullable=False
     )
     total_cost = db.Column(db.Float, nullable=False, default=0.0)
-    purchase_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    purchase_date = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow)
     notes = db.Column(db.Text)
 
     supplier = relationship("Supplier", backref="purchases")
@@ -123,7 +124,6 @@ class Purchase(db.Model, SerializerMixin):
         }
 
 
-# ✅ PurchaseItem
 class PurchaseItem(db.Model, SerializerMixin):
     __tablename__ = "purchase_items"
 
@@ -158,7 +158,6 @@ class PurchaseItem(db.Model, SerializerMixin):
         }
 
 
-# ✅ BusinessLocation
 class BusinessLocation(db.Model, SerializerMixin):
     __tablename__ = "business_locations"
 
@@ -169,7 +168,8 @@ class BusinessLocation(db.Model, SerializerMixin):
     phone = db.Column(db.String(50))
     notes = db.Column(db.Text)
 
-    stock_transfers = db.relationship("StockTransfer", backref="location", cascade="all, delete-orphan")
+    stock_transfers = db.relationship(
+        "StockTransfer", backref="location", cascade="all, delete-orphan")
 
     serialize_rules = ("-stock_transfers.location",)
 
@@ -184,7 +184,6 @@ class BusinessLocation(db.Model, SerializerMixin):
         }
 
 
-# ✅ StockTransfer
 class StockTransfer(db.Model, SerializerMixin):
     __tablename__ = "stock_transfers"
 
@@ -192,7 +191,8 @@ class StockTransfer(db.Model, SerializerMixin):
     date = db.Column(db.DateTime, default=datetime.utcnow)
     location_id = db.Column(
         db.Integer,
-        db.ForeignKey("business_locations.id", name="fk_stock_transfers_location_id"),
+        db.ForeignKey("business_locations.id",
+                      name="fk_stock_transfers_location_id"),
         nullable=False
     )
     notes = db.Column(db.Text)
@@ -217,19 +217,20 @@ class StockTransfer(db.Model, SerializerMixin):
         }
 
 
-# ✅ StockTransferItem
 class StockTransferItem(db.Model, SerializerMixin):
     __tablename__ = "stock_transfer_items"
 
     id = db.Column(db.Integer, primary_key=True)
     stock_transfer_id = db.Column(
         db.Integer,
-        db.ForeignKey("stock_transfers.id", name="fk_stock_transfer_items_transfer_id", ondelete="CASCADE"),
+        db.ForeignKey("stock_transfers.id",
+                      name="fk_stock_transfer_items_transfer_id", ondelete="CASCADE"),
         nullable=False
     )
     product_id = db.Column(
         db.Integer,
-        db.ForeignKey("products.id", name="fk_stock_transfer_items_product_id"),
+        db.ForeignKey(
+            "products.id", name="fk_stock_transfer_items_product_id"),
         nullable=False
     )
     quantity = db.Column(db.Integer, nullable=False, default=0)

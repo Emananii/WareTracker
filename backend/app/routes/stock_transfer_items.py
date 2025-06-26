@@ -3,13 +3,11 @@ from ..models import db, StockTransferItem, StockTransfer, Product
 
 stock_transfer_item_bp = Blueprint("stock_transfer_item_bp", __name__)
 
-# GET /stock_transfer_items - List all items
 @stock_transfer_item_bp.route("/stock_transfer_items", methods=["GET"])
 def get_stock_transfer_items():
     items = StockTransferItem.query.all()
     return jsonify([item.to_dict() for item in items]), 200
 
-# GET /stock_transfer_items/<int:id>
 @stock_transfer_item_bp.route("/stock_transfer_items/<int:id>", methods=["GET"])
 def get_stock_transfer_item(id):
     item = StockTransferItem.query.get(id)
@@ -17,7 +15,6 @@ def get_stock_transfer_item(id):
         return jsonify({"error": "Stock transfer item not found"}), 404
     return jsonify(item.to_dict()), 200
 
-# POST /stock_transfer_items
 @stock_transfer_item_bp.route("/stock_transfer_items", methods=["POST"])
 def create_stock_transfer_item():
     data = request.get_json()
@@ -42,7 +39,6 @@ def create_stock_transfer_item():
     except KeyError as e:
         return jsonify({"error": f"Missing field: {str(e)}"}), 400
 
-# PUT /stock_transfer_items/<int:id>
 @stock_transfer_item_bp.route("/stock_transfer_items/<int:id>", methods=["PUT"])
 def update_stock_transfer_item(id):
     item = StockTransferItem.query.get(id)
@@ -60,7 +56,6 @@ def update_stock_transfer_item(id):
     db.session.commit()
     return jsonify(item.to_dict()), 200
 
-# DELETE /stock_transfer_items/<int:id>
 @stock_transfer_item_bp.route("/stock_transfer_items/<int:id>", methods=["DELETE"])
 def delete_stock_transfer_item(id):
     item = StockTransferItem.query.get(id)
