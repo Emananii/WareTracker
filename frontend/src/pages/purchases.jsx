@@ -29,6 +29,7 @@ export default function Purchases() {
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
 
   const { toast } = useToast();
   const printRef = useRef();
@@ -49,6 +50,19 @@ export default function Purchases() {
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/purchases`);
       if (!res.ok) throw new Error("Failed to fetch purchases");
+      return res.json();
+    },
+  });
+
+  const {
+    data: suppliers = [],
+    isLoading: suppliersLoading,
+    isError: suppliersError,
+  } = useQuery({
+    queryKey: [`${BASE_URL}/suppliers`],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/suppliers`);
+      if (!res.ok) throw new Error("Failed to fetch suppliers");
       return res.json();
     },
   });
@@ -109,9 +123,13 @@ export default function Purchases() {
     const from = startDate ? new Date(startDate) : null;
     const to = endDate ? new Date(endDate) : null;
 
-    if (from && purchaseDate < from) return false;
-    if (to && purchaseDate > to) return false;
-    return true;
+    const matchesDateRange =
+      (!from || purchaseDate >= from) && (!to || purchaseDate <= to);
+
+    const matchesSupplier =
+      !selectedSupplierId || purchase.supplier?.id == selectedSupplierId;
+
+    return matchesDateRange && matchesSupplier;
   });
 
   const sortedPurchases = [...filteredPurchases].sort((a, b) => {
@@ -165,31 +183,54 @@ export default function Purchases() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-gray-800">Purchase Management</h1>
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-              placeholder="From"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-              placeholder="To"
-            />
+      <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">Filter Purchases</h2>
+            <Button onClick={() => setIsAddModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Add Purchase
+            </Button>
           </div>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Purchase
-          </Button>
-        </div>
-      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">Supplier</label>
+              <select
+                value={selectedSupplierId}
+                onChange={(e) => setSelectedSupplierId(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="">All Suppliers</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
