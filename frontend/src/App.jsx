@@ -3,7 +3,7 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 
-import { ToastProvider, ToastViewport } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/toaster"; // ✅ Correct toast renderer
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import Sidebar from "@/components/layout/sidebar";
@@ -17,7 +17,6 @@ import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
 import Suppliers from "@/pages/suppliers";
-
 
 import { Menu, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -87,12 +86,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ToastProvider>
-          <Layout>
-            <Router />
-          </Layout>
-          <ToastViewport />
-        </ToastProvider>
+        <Layout>
+          <Router />
+        </Layout>
+        <Toaster /> {/* ✅ Renders toast notifications */}
       </TooltipProvider>
     </QueryClientProvider>
   );

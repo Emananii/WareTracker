@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQuery } from "@tanstack/react-query";
+
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
 
 import {
@@ -12,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   Form,
   FormControl,
@@ -20,29 +23,30 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
 import {
   Select,
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-import { X, Plus, Trash2 } from "lucide-react";
-import { insertPurchaseSchema } from "@/shared/schema";
-import { useState } from "react";
+import { Trash2 } from "lucide-react";
 
-const formSchema = insertPurchaseSchema.extend({
-  supplierId: z.number().min(1, "Supplier is required"),
+const formSchema = z.object({
+  supplier_id: z.coerce.number().min(1, "Supplier is required"),
+  notes: z.string().optional(),
   items: z
     .array(
       z.object({
-        inventoryItemId: z.number().min(1, "Item is required"),
-        quantity: z.number().min(1, "Quantity must be at least 1"),
-        unitCost: z.string().min(1, "Unit cost is required"),
+        product_id: z.coerce.number().min(1, "Item is required"),
+        quantity: z.coerce.number().min(1, "Minimum quantity is 1"),
+        unit_cost: z.coerce.number().min(0, "Unit cost required"),
       })
     )
     .min(1, "At least one item is required"),
@@ -50,9 +54,11 @@ const formSchema = insertPurchaseSchema.extend({
 
 export default function AddPurchaseModal({ isOpen, onClose }) {
   const { toast } = useToast();
+  const [items, setItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: suppliers = [] } = useQuery({
-    queryKey: [`${BASE_URL}/suppliers`],
+    queryKey: ["suppliers"],
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/suppliers`);
       if (!res.ok) throw new Error("Failed to fetch suppliers");
@@ -60,11 +66,11 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
     },
   });
 
-  const { data: inventory = [] } = useQuery({
-    queryKey: [`${BASE_URL}/inventory`],
+  const { data: products = [] } = useQuery({
+    queryKey: ["products"],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/inventory`);
-      if (!res.ok) throw new Error("Failed to fetch inventory");
+      const res = await fetch(`${BASE_URL}/products`);
+      if (!res.ok) throw new Error("Failed to fetch products");
       return res.json();
     },
   });
@@ -72,88 +78,92 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      supplierId: undefined,
-      totalCost: "0",
+      supplier_id: undefined,
       notes: "",
-      items: [
-        {
-          inventoryItemId: undefined,
-          quantity: 1,
-          unitCost: "0",
-        },
-      ],
+      items: [],
     },
   });
 
-  const watchedItems = form.watch("items");
-
-  const calculateTotalCost = () => {
-    const items = form.getValues("items");
-    const total = items.reduce((sum, item) => {
-      return sum + item.quantity * parseFloat(item.unitCost || "0");
-    }, 0);
-    form.setValue("totalCost", total.toFixed(2));
-  };
-
-  const addItem = () => {
-    const currentItems = form.getValues("items");
-    form.setValue("items", [
-      ...currentItems,
+  const addItem = (product) => {
+    const updated = [
+      ...items,
       {
-        inventoryItemId: undefined,
+        product_id: product.id,
         quantity: 1,
-        unitCost: "0",
+        unit_cost: parseFloat(product.unit_cost ?? "0"),
       },
-    ]);
+    ];
+    setItems(updated);
+    form.setValue("items", updated);
+    setSearchQuery("");
   };
 
   const removeItem = (index) => {
-    const currentItems = form.getValues("items");
-    if (currentItems.length > 1) {
-      form.setValue(
-        "items",
-        currentItems.filter((_, i) => i !== index)
-      );
-      calculateTotalCost();
-    }
+    const updated = [...items];
+    updated.splice(index, 1);
+    setItems(updated);
+    form.setValue("items", updated);
+  };
+
+  const handleItemChange = (index, field, value) => {
+    const updated = [...items];
+    updated[index] = { ...updated[index], [field]: value };
+    setItems(updated);
+    form.setValue("items", updated);
+  };
+
+  const calculateTotal = () => {
+    return items.reduce((sum, item) => {
+      const q = parseInt(item.quantity) || 0;
+      const u = parseFloat(item.unit_cost) || 0;
+      return sum + q * u;
+    }, 0);
   };
 
   const createPurchaseMutation = useMutation({
     mutationFn: async (data) => {
-      const purchaseResponse = await apiRequest("POST", "/api/purchases", {
-        supplierId: data.supplierId,
-        totalCost: data.totalCost,
+      const purchase = await apiRequest("POST", `${BASE_URL}/purchases`, {
+        supplier_id: data.supplier_id,
+        total_cost: calculateTotal().toFixed(2),
         notes: data.notes,
       });
 
-      const purchase = await purchaseResponse.json();
-
-      for (const item of data.items) {
-        await apiRequest("POST", "/api/purchase-items", {
-          purchaseId: purchase.id,
-          inventoryItemId: item.inventoryItemId,
-          quantity: item.quantity,
-          unitCost: item.unitCost,
-        });
-      }
+      await Promise.all(
+        items.map((item) =>
+          apiRequest("POST", `${BASE_URL}/purchase_items`, {
+            purchase_id: purchase.id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_cost: item.unit_cost,
+          })
+        )
+      );
 
       return purchase;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      console.log("✅ Toast trigger fired"); // for debugging
       toast({
-        title: "Success",
-        description: "Purchase added successfully",
+        title: "Purchase recorded",
+        description: "The new purchase has been added successfully.",
       });
-      form.reset();
-      onClose();
+
+      // Reset form after slight delay to allow toast to render first
+      setTimeout(() => {
+        form.reset();
+        setItems([]);
+        setSearchQuery("");
+        onClose();
+        window.location.reload();
+      }, 1500); // 300ms to avoid abrupt closure before user sees toast
+
+      queryClient.invalidateQueries({ queryKey: ["/purchases"] });
     },
     onError: (error) => {
+      console.error("❌ Purchase failed", error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Something went wrong",
+        description: error.message || "Could not create purchase",
         variant: "destructive",
       });
     },
@@ -163,29 +173,31 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
     createPurchaseMutation.mutate(data);
   };
 
+  const filteredProducts = products.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold text-gray-800">
-              Add New Purchase
-            </DialogTitle>
-          </div>
+          <DialogTitle className="text-lg font-semibold text-gray-800">
+            Add New Purchase
+          </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Supplier */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Supplier Select */}
             <FormField
               control={form.control}
-              name="supplierId"
+              name="supplier_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Supplier</FormLabel>
                   <Select
+                    value={(field.value ?? "").toString()}
                     onValueChange={(value) => field.onChange(parseInt(value))}
-                    value={field.value !== undefined ? field.value.toString() : ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -194,10 +206,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                     </FormControl>
                     <SelectContent>
                       {suppliers.map((supplier) => (
-                        <SelectItem
-                          key={supplier.id}
-                          value={supplier.id.toString()}
-                        >
+                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
                           {supplier.name}
                         </SelectItem>
                       ))}
@@ -208,148 +217,94 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
               )}
             />
 
-            {/* Items */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-gray-900">
-                  Purchase Items
-                </h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addItem}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
-              </div>
-
-              {watchedItems.map((_, index) => (
-                <div key={index} className="border rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-sm font-medium">Item {index + 1}</h5>
-                    {watchedItems.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Item Select */}
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.inventoryItemId`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Item</FormLabel>
-                          <Select
-                            onValueChange={(value) =>
-                              field.onChange(parseInt(value))
-                            }
-                            value={field.value !== undefined ? field.value.toString() : ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select item" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {inventory.map((item) => (
-                                <SelectItem
-                                  key={item.id}
-                                  value={item.id.toString()}
-                                >
-                                  {item.name} ({item.sku})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Quantity */}
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quantity</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="1"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(
-                                  parseInt(e.target.value) || 0
-                                );
-                                setTimeout(calculateTotalCost, 0);
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Unit Cost */}
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.unitCost`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Unit Cost</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e.target.value);
-                                setTimeout(calculateTotalCost, 0);
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+            {/* Product Search and Add */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Products
+              </label>
+              <Input
+                type="text"
+                placeholder="Type to search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <div className="mt-2 border rounded shadow bg-white max-h-48 overflow-auto">
+                  {filteredProducts.length === 0 && (
+                    <div className="p-2 text-sm text-gray-500">No products found</div>
+                  )}
+                  {filteredProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="p-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => addItem(product)}
+                    >
+                      {product.name}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+            </div>
+
+            {/* Items Table */}
+            <div className="space-y-4">
+              <h4 className="text-md font-semibold text-gray-700">Selected Items</h4>
+              {items.map((item, index) => {
+                const subtotal = (item.quantity * item.unit_cost).toFixed(2);
+                const product = products.find((p) => p.id === item.product_id);
+
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 md:grid-cols-6 items-center gap-4 p-4 border rounded-lg shadow-sm"
+                  >
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Product</label>
+                      <Input readOnly value={product?.name ?? ""} className="bg-gray-100" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Qty</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity.toString()}
+                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Unit Cost</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.unit_cost.toString()}
+                        onChange={(e) => handleItemChange(index, "unit_cost", parseFloat(e.target.value))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Subtotal</label>
+                      <Input readOnly value={`KSH ${subtotal}`} className="bg-gray-100" />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" onClick={() => removeItem(index)}>
+                        <Trash2 className="h-5 w-5 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Total Cost */}
-            <FormField
-              control={form.control}
-              name="totalCost"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Cost</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      readOnly
-                      placeholder="0.00"
-                      className="bg-gray-50"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Total Cost</label>
+              <Input
+                type="text"
+                readOnly
+                value={`KSH ${calculateTotal().toFixed(2)}`}
+                className="bg-gray-100"
+              />
+            </div>
 
             {/* Notes */}
             <FormField
@@ -359,21 +314,16 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Purchase notes..." {...field} />
+                    <Textarea placeholder="Notes..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Actions */}
+            {/* Footer Buttons */}
             <div className="flex space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={onClose}
-              >
+              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
                 Cancel
               </Button>
               <Button
@@ -381,9 +331,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
                 disabled={createPurchaseMutation.isPending}
               >
-                {createPurchaseMutation.isPending
-                  ? "Adding..."
-                  : "Add Purchase"}
+                {createPurchaseMutation.isPending ? "Adding..." : "Add Purchase"}
               </Button>
             </div>
           </form>

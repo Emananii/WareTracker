@@ -16,6 +16,7 @@ import AddBusinessModal from "@/components/businesses/add-business-modal";
 import EditBusinessModal from "@/components/businesses/edit-business-modal";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 export default function Businesses() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -24,7 +25,7 @@ export default function Businesses() {
   const { toast } = useToast();
 
   const { data: businesses = [], isLoading } = useQuery({
-    queryKey: ["/api/businesses"],
+    queryKey: ["${BASE_URL}/business_locations"],
   });
 
   const filteredBusinesses = businesses.filter((business) =>

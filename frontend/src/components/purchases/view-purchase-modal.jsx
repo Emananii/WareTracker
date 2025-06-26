@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,13 +7,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { Trash2, PencilLine } from "lucide-react";
+import { Trash2, PencilLine, Printer } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import EditPurchaseModal from "./edit-purchase-modal";
 import { BASE_URL } from "@/lib/constants";
 
-// ✅ Format ISO date string to readable format
 const formatDate = (rawDate) => {
   const date = new Date(rawDate);
   if (isNaN(date.getTime())) return "Invalid Date";
@@ -23,19 +22,26 @@ const formatDate = (rawDate) => {
   }).format(date);
 };
 
-// ✅ Format currency safely
 const formatCurrency = (amount) => {
   const parsed = parseFloat(amount);
-  if (isNaN(parsed)) return "$0.00";
+  if (isNaN(parsed)) return "ksh0.00";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "ksh",
+    currency: "KES",
   }).format(parsed);
 };
 
-export default function ViewPurchaseModal({ isOpen, onClose, purchase }) {
+export default function ViewPurchaseModal({ isOpen, onClose, purchase, onPrint }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
+
+  const isEditable = useMemo(() => {
+    if (!purchase?.purchase_date) return false;
+    const purchaseDate = new Date(purchase.purchase_date);
+    const now = new Date();
+    const diffInDays = (now - purchaseDate) / (1000 * 60 * 60 * 24);
+    return diffInDays <= 30;
+  }, [purchase]);
 
   const deleteMutation = useMutation({
     mutationFn: () => apiRequest("DELETE", `${BASE_URL}/purchases/${purchase?.id}`),
@@ -82,7 +88,8 @@ export default function ViewPurchaseModal({ isOpen, onClose, purchase }) {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 text-sm" id="purchase-description">
+          {/* Purchase Summary Info */}
+          <div className="space-y-4 text-sm">
             <div>
               <strong>Supplier:</strong>{" "}
               {purchase.supplier?.name || "Unknown Supplier"}
@@ -141,19 +148,29 @@ export default function ViewPurchaseModal({ isOpen, onClose, purchase }) {
             )}
           </div>
 
+          {/* Buttons */}
           <div className="flex justify-end space-x-3 pt-6">
-            <Button variant="outline" onClick={() => setEditing(true)}>
-              <PencilLine className="w-4 h-4 mr-2" />
-              Edit
+            <Button variant="outline" onClick={onPrint}>
+              <Printer className="w-4 h-4 mr-2" />
+              Print
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-              <Trash2 className="w-4 h-4 ml-2" />
-            </Button>
+
+            {isEditable && (
+              <>
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  <PencilLine className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                  <Trash2 className="w-4 h-4 ml-2" />
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -164,7 +181,6 @@ export default function ViewPurchaseModal({ isOpen, onClose, purchase }) {
           onClose={() => setEditing(false)}
           purchase={purchase}
           onUpdated={() => {
-            // Refresh to get updated info
             window.location.href = "/purchases";
           }}
         />

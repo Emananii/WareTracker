@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 export default function AddSupplierModal({ isOpen, onClose }) {
   const { toast } = useToast();
@@ -36,10 +37,10 @@ export default function AddSupplierModal({ isOpen, onClose }) {
 
   const createSupplierMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("POST", "/api/suppliers", data);
+      return apiRequest("POST", `${BASE_URL}/suppliers`, data); // ✅ Updated endpoint
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/suppliers`] }); // ✅ Ensure this matches useQuery key
       toast({
         title: "Success",
         description: "Supplier added successfully",
@@ -91,7 +92,7 @@ export default function AddSupplierModal({ isOpen, onClose }) {
               )}
             />
 
-            {/* Contact (Optional) */}
+            {/* Contact */}
             <FormField
               control={form.control}
               name="contact"
@@ -110,7 +111,7 @@ export default function AddSupplierModal({ isOpen, onClose }) {
               )}
             />
 
-            {/* Address (Optional) */}
+            {/* Address */}
             <FormField
               control={form.control}
               name="address"

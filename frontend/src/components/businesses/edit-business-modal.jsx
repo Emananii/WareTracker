@@ -21,6 +21,7 @@ import { X } from "lucide-react";
 import { insertBusinessSchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 const editSchema = insertBusinessSchema;
 
@@ -40,7 +41,7 @@ export default function EditBusinessModal({ business, isOpen, onClose }) {
       return apiRequest("PUT", `/api/businesses/${business.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/businesses"] });
+      queryClient.invalidateQueries({ queryKey: ["${BASE_URL}/businesses"] });
       toast({
         title: "Success",
         description: "Business updated successfully",

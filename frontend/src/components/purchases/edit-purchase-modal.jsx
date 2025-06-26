@@ -124,17 +124,23 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
         )
       );
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/purchases`] });
+  onSuccess: async () => {
+  await queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/purchases`] });
 
-      toast({
-        title: "Purchase updated",
-        description: `Purchase #${purchase.id} updated successfully`,
-      });
+  toast({
+    title: "Purchase updated",
+    description: `Purchase #${purchase.id} updated successfully`,
+  });
 
-      onClose();
-      window.location.href = "/purchases";
-    },
+
+  setTimeout(() => {
+    window.location.href = "/purchases";
+  }, 1200);
+
+  onClose();
+},
+
+
     onError: (error) => {
       toast({
         title: "Update failed",
@@ -186,7 +192,6 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Supplier */}
             <FormField
               control={form.control}
               name="supplier_id"
@@ -216,7 +221,6 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
               )}
             />
 
-            {/* Notes */}
             <FormField
               control={form.control}
               name="notes"
@@ -235,7 +239,6 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
               )}
             />
 
-            {/* Purchase Items */}
             <div className="space-y-3">
               <h4 className="text-md font-semibold text-gray-700">Purchase Items</h4>
               {items.map((item) => {
@@ -282,7 +285,6 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
               })}
             </div>
 
-            {/* Total Cost */}
             <div className="space-y-1">
               <label className="text-sm font-medium text-gray-700">Total Cost</label>
               <Input
@@ -295,7 +297,6 @@ export default function EditPurchaseModal({ isOpen, onClose, purchase }) {
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="flex space-x-3 pt-4">
               {isEditable ? (
                 <>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
-
 import AddPurchaseModal from "@/components/purchases/add-purchase-modal";
 import ViewPurchaseModal from "@/components/purchases/view-purchase-modal";
+import PrintPurchaseModal from "@/components/purchases/print-purchase-modal";
 import { BASE_URL } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
+import { useReactToPrint } from "react-to-print";
 
 export default function Purchases() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -22,7 +24,21 @@ export default function Purchases() {
   const [viewingLoading, setViewingLoading] = useState(false);
   const [currentlyViewingId, setCurrentlyViewingId] = useState(null);
 
-  // Fetch list of purchases (basic info)
+  const [sortBy, setSortBy] = useState("purchase_date");
+  const [sortDirection, setSortDirection] = useState("desc");
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const { toast } = useToast();
+  const printRef = useRef();
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `Purchase-${viewingPurchase?.id || "unknown"}`,
+    removeAfterPrint: true,
+  });
+
   const {
     data: purchases = [],
     isLoading: loadingPurchases,
@@ -37,7 +53,6 @@ export default function Purchases() {
     },
   });
 
-  // Helper: Fetch full purchase (with items + product info)
   const fetchPurchaseDetails = async (purchaseId) => {
     setViewingLoading(true);
     setCurrentlyViewingId(purchaseId);
@@ -48,26 +63,30 @@ export default function Purchases() {
       setViewingPurchase(data);
     } catch (err) {
       console.error("Error fetching purchase details:", err);
+      toast({
+        title: "Fetch error",
+        description: err.message,
+        variant: "destructive",
+      });
     } finally {
       setViewingLoading(false);
       setCurrentlyViewingId(null);
     }
   };
 
-  // Helpers
   const formatCurrency = (amount) => {
     const parsed = parseFloat(amount);
     if (isNaN(parsed)) return "ksh0.00";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "ksh",
+      currency: "KES",
     }).format(parsed);
   };
 
   const formatDate = (date) => {
     const parsedDate = new Date(date);
     if (isNaN(parsedDate.getTime())) return "Invalid Date";
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat("en-KE", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -76,7 +95,50 @@ export default function Purchases() {
     }).format(parsedDate);
   };
 
-  // Loading state
+  const handleSort = (key) => {
+    if (sortBy === key) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortDirection("asc");
+    }
+  };
+
+  const filteredPurchases = purchases.filter((purchase) => {
+    const purchaseDate = new Date(purchase.purchase_date);
+    const from = startDate ? new Date(startDate) : null;
+    const to = endDate ? new Date(endDate) : null;
+
+    if (from && purchaseDate < from) return false;
+    if (to && purchaseDate > to) return false;
+    return true;
+  });
+
+  const sortedPurchases = [...filteredPurchases].sort((a, b) => {
+    let valueA, valueB;
+
+    switch (sortBy) {
+      case "id":
+        valueA = a.id;
+        valueB = b.id;
+        break;
+      case "total_cost":
+        valueA = parseFloat(a.total_cost);
+        valueB = parseFloat(b.total_cost);
+        break;
+      case "purchase_date":
+        valueA = new Date(a.purchase_date).getTime();
+        valueB = new Date(b.purchase_date).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    return sortDirection === "asc"
+      ? valueA > valueB ? 1 : valueA < valueB ? -1 : 0
+      : valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+  });
+
   if (loadingPurchases) {
     return (
       <div className="space-y-6">
@@ -89,7 +151,6 @@ export default function Purchases() {
     );
   }
 
-  // Error state
   if (errorPurchases) {
     return (
       <div className="space-y-6">
@@ -104,37 +165,61 @@ export default function Purchases() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-semibold text-gray-800">Purchase Management</h1>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Purchase
-        </Button>
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+              placeholder="From"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="border rounded px-2 py-1 text-sm"
+              placeholder="To"
+            />
+          </div>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Purchase
+          </Button>
+        </div>
       </div>
 
-      {/* Purchases Table */}
       <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead>Purchase ID</TableHead>
+                <TableHead onClick={() => handleSort("id")} className="cursor-pointer select-none">
+                  Purchase ID {sortBy === "id" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                </TableHead>
                 <TableHead>Supplier</TableHead>
-                <TableHead>Total Cost</TableHead>
-                <TableHead>Purchase Date</TableHead>
+                <TableHead onClick={() => handleSort("total_cost")} className="cursor-pointer select-none">
+                  Total Cost {sortBy === "total_cost" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                </TableHead>
+                <TableHead onClick={() => handleSort("purchase_date")} className="cursor-pointer select-none">
+                  Purchase Date {sortBy === "purchase_date" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                </TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchases.length > 0 ? (
-                purchases.map((purchase) => (
-                  <TableRow key={purchase.id} className="hover:bg-gray-50">
+              {sortedPurchases.length > 0 ? (
+                sortedPurchases.map((purchase) => (
+                  <TableRow
+                    key={purchase.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => fetchPurchaseDetails(purchase.id)}
+                  >
                     <TableCell className="font-medium">#{purchase.id}</TableCell>
-                    <TableCell>
-                      {purchase.supplier?.name || "Unknown Supplier"}
-                    </TableCell>
+                    <TableCell>{purchase.supplier?.name || "Unknown Supplier"}</TableCell>
                     <TableCell>{formatCurrency(purchase.total_cost)}</TableCell>
                     <TableCell>{formatDate(purchase.purchase_date)}</TableCell>
                     <TableCell>{purchase.notes || "N/A"}</TableCell>
@@ -142,12 +227,13 @@ export default function Purchases() {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => fetchPurchaseDetails(purchase.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchPurchaseDetails(purchase.id);
+                        }}
                         disabled={viewingLoading && currentlyViewingId === purchase.id}
                       >
-                        {viewingLoading && currentlyViewingId === purchase.id
-                          ? "Loading..."
-                          : "View Details"}
+                        {viewingLoading && currentlyViewingId === purchase.id ? "Loading..." : "View Details"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -164,19 +250,18 @@ export default function Purchases() {
         </div>
       </Card>
 
-      {/* Modals */}
-      <AddPurchaseModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-      />
+      <AddPurchaseModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
 
       {viewingPurchase && (
         <ViewPurchaseModal
           isOpen={!!viewingPurchase}
           onClose={() => setViewingPurchase(null)}
           purchase={viewingPurchase}
+          onPrint={handlePrint}
         />
       )}
+
+      <PrintPurchaseModal ref={printRef} purchase={viewingPurchase} />
     </div>
   );
 }

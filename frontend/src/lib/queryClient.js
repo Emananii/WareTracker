@@ -1,27 +1,34 @@
 import { QueryClient } from "@tanstack/react-query";
 
-// Internal error helper
+// Throw an error if response is not OK
 async function throwIfResNotOk(res) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorMsg = res.statusText;
+    try {
+      // Try to parse JSON error message from backend
+      const errorData = await res.json();
+      errorMsg = errorData.error || JSON.stringify(errorData);
+    } catch {
+      // Fallback to plain text if not JSON
+      errorMsg = await res.text();
+    }
+    throw new Error(`${res.status}: ${errorMsg}`);
   }
 }
 
-// Generic API request wrapper (used for POST, PUT, DELETE, etc.)
 export async function apiRequest(method, url, data) {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    // Removed credentials: "include"
+    // credentials: "include" removed for now unless explicitly needed
   });
 
   await throwIfResNotOk(res);
-  return res;
+
+  return await res.json();
 }
 
-// Query fetch function (used for GET queries via React Query)
 export function getQueryFn({ on401 }) {
   return async ({ queryKey }) => {
     const res = await fetch(queryKey[0]); // Removed credentials: "include"
@@ -35,7 +42,6 @@ export function getQueryFn({ on401 }) {
   };
 }
 
-// Default React Query configuration
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
