@@ -1,35 +1,34 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { editCategorySchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useForm } from "react-hook-form";
+import { useToast } from "@/hooks/use-toast";
 
-// AddCategoryModal.jsx
-
-export default function AddCategoryModal({ isOpen, onClose }) {
+export default function EditCategoryModal({ isOpen, onClose, category }) {
   const { toast } = useToast();
 
   const form = useForm({
     defaultValues: {
-      name: "",
-      description: "", // Added description field
+      name: category?.name || "",
+      description: category?.description || "", // Add description to default values
     },
   });
 
-  const addCategoryMutation = useMutation({
+  const editCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("POST", "/api/categories", data); // Ensure the backend accepts description
+      return apiRequest("PUT", `/api/categories/${category.id}`, data); // Ensure it sends description to backend
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       toast({
         title: "Success",
-        description: "Category added successfully!",
+        description: "Category updated successfully!",
       });
       form.reset();
       onClose();
@@ -45,7 +44,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
 
   const onSubmit = (data) => {
     if (data.name.trim()) {
-      addCategoryMutation.mutate(data);
+      editCategoryMutation.mutate(data);
     }
   };
 
@@ -55,7 +54,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold text-gray-800">
-              Add New Category
+              Edit Category
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-5 w-5" />
@@ -107,9 +106,9 @@ export default function AddCategoryModal({ isOpen, onClose }) {
               <Button
                 type="submit"
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={addCategoryMutation.isPending}
+                disabled={editCategoryMutation.isPending}
               >
-                {addCategoryMutation.isPending ? "Adding..." : "Add Category"}
+                {editCategoryMutation.isPending ? "Updating..." : "Update Category"}
               </Button>
             </div>
           </form>

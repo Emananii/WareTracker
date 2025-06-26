@@ -1,59 +1,46 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Edit, Trash2, Plus, Search } from "lucide-react"; // Include Search icon
-import { Input } from "@/components/ui/input"; // Correct import for Input
+import { Edit, Trash2, Plus, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import AddCategoryModal from "@/components/categories/add-category-modal"; // Import AddCategoryModal
+import AddCategoryModal from "@/components/categories/add-category-modal";
+import EditCategoryModal from "@/components/categories/edit-category-modal";
+import DeleteCategoryModal from "@/components/categories/delete-category-modal";
 
 export default function Categories() {
   const { toast } = useToast();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); // State for search term
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null); // For selected category
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Mocked data for categories
   const mockedCategories = [
-    { id: 1, name: "Electronics" },
-    { id: 2, name: "Groceries" },
-    { id: 3, name: "Furniture" },
-    { id: 4, name: "Toys" },
+    { id: 1, name: "Electronics", description: "Devices and gadgets" },
+    { id: 2, name: "Groceries", description: "Food and beverages" },
+    { id: 3, name: "Furniture", description: "Furniture and home decor" },
+    { id: 4, name: "Toys", description: "Children's toys and games" },
   ];
 
-  // Replace the query with mocked data
   const { data: categories = mockedCategories, isLoading } = useQuery({
     queryKey: ["/api/categories"],
     queryFn: async () => {
-      // Here you would replace with your actual API request when ready
-      return mockedCategories; // Mocked data for now
+      return mockedCategories;
     },
   });
 
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id) => {
-      // Here you would replace with the actual delete API request
-      return new Promise((resolve) => setTimeout(resolve, 500)); // Mocked delete action
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-      toast({
-        title: "Success",
-        description: "Category deleted successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
-    },
-  });
+  const handleEdit = (category) => {
+    setSelectedCategory(category); // Store selected category for editing
+    setIsEditModalOpen(true); // Open edit modal
+  };
 
-  const handleDelete = (id) => {
-    deleteCategoryMutation.mutate(id);
+  const handleDelete = (category) => {
+    setSelectedCategory(category); // Store selected category for deletion
+    setIsDeleteModalOpen(true); // Open delete modal
   };
 
   // Handle search functionality
@@ -62,91 +49,59 @@ export default function Categories() {
   );
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Card className="animate-pulse">
-          <CardContent className="p-6">
-            <div className="h-20 bg-gray-200 rounded"></div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Add Button */}
+    <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">Categories</h1>
+        <h1>Categories</h1>
         <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Category
+          <Plus className="h-4 w-4 mr-2" /> Add Category
         </Button>
       </div>
 
       {/* Search Bar */}
-      <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 max-w-md">
-              <Input
-                type="text"
-                placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Input
+        placeholder="Search categories..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="my-4" // Adding margin to give space between the search bar and the table
+      />
 
-      {/* Categories Table */}
-      <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <CardContent className="p-6">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead>Category Name</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCategories.length > 0 ? (
-                  filteredCategories.map((category) => (
-                    <TableRow key={category.id} className="hover:bg-gray-50">
-                      <TableCell>{category.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-center py-8 text-gray-500">
-                      No categories available
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Table Wrapper */}
+      <div className="p-4 bg-white rounded-lg shadow-md border border-gray-200">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50">
+              <TableHead>Category Name</TableHead>
+              <TableHead>Description</TableHead> {/* Add description column */}
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredCategories.map((category) => (
+              <TableRow key={category.id} className="hover:bg-gray-50">
+                <TableCell>{category.name}</TableCell>
+                <TableCell>{category.description}</TableCell> {/* Display description */}
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(category)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(category)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      {/* Add Category Modal */}
+      {/* Modals */}
       <AddCategoryModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+      <EditCategoryModal category={selectedCategory} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} />
+      <DeleteCategoryModal category={selectedCategory} isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} />
     </div>
   );
 }

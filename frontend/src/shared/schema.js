@@ -11,6 +11,11 @@ export const insertCategorySchema = z.object({
   name: z.string().min(2, "Category name must be at least 2 characters."),
 });
 
+// Edit Category Schema
+export const editCategorySchema = insertCategorySchema.extend({
+  // You can add more fields here if needed for edit, like description, etc.
+});
+
 // Supplier form validation
 export const insertSupplierSchema = z.object({
   name: z.string().min(2),
