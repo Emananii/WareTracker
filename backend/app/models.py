@@ -36,6 +36,8 @@ class Supplier(db.Model, SerializerMixin):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    is_deleted = db.Column(db.Boolean, default=False)
+
     serialize_rules = ("-purchases",)
 
 
