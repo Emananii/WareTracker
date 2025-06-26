@@ -11,7 +11,6 @@ app = create_app()
 with app.app_context():
     print("🔄 Clearing existing data...")
 
-    # Order matters: delete child tables first
     StockTransferItem.query.delete()
     StockTransfer.query.delete()
     PurchaseItem.query.delete()
@@ -73,7 +72,7 @@ with app.app_context():
     purchases = []
 
     for i in range(8):
-        # First 3 are older than 30 days
+        
         if i < 3:
             days_ago = random.randint(31, 90)
         else:

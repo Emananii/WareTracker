@@ -3,13 +3,11 @@ from ..models import db, BusinessLocation
 
 business_location_bp = Blueprint("business_location_bp", __name__)
 
-# GET /business_locations - List all locations
 @business_location_bp.route("/business_locations", methods=["GET"])
 def get_business_locations():
     locations = BusinessLocation.query.all()
     return jsonify([location.to_dict() for location in locations]), 200
 
-# GET /business_locations/<int:id> - Get single location
 @business_location_bp.route("/business_locations/<int:id>", methods=["GET"])
 def get_business_location(id):
     location = BusinessLocation.query.get(id)
@@ -17,7 +15,6 @@ def get_business_location(id):
         return jsonify({"error": "Business location not found"}), 404
     return jsonify(location.to_dict()), 200
 
-# POST /business_locations - Create a new location
 @business_location_bp.route("/business_locations", methods=["POST"])
 def create_business_location():
     data = request.get_json()
@@ -28,7 +25,7 @@ def create_business_location():
         phone = data.get("phone")
         notes = data.get("notes")
 
-        # Check for duplicate name
+        # We must check for duplicate name before we post
         if BusinessLocation.query.filter_by(name=name).first():
             return jsonify({"error": "A business location with this name already exists"}), 400
 
@@ -46,7 +43,6 @@ def create_business_location():
     except KeyError as e:
         return jsonify({"error": f"Missing required field: {str(e)}"}), 400
 
-# PUT /business_locations/<int:id> - Update location details
 @business_location_bp.route("/business_locations/<int:id>", methods=["PUT"])
 def update_business_location(id):
     location = BusinessLocation.query.get(id)
@@ -62,7 +58,6 @@ def update_business_location(id):
     db.session.commit()
     return jsonify(location.to_dict()), 200
 
-# DELETE /business_locations/<int:id> - Delete a location
 @business_location_bp.route("/business_locations/<int:id>", methods=["DELETE"])
 def delete_business_location(id):
     location = BusinessLocation.query.get(id)

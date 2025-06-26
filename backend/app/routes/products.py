@@ -4,13 +4,11 @@ from sqlalchemy.exc import IntegrityError
 
 product_bp = Blueprint("product_routes", __name__)
 
-# GET /products - List all products
 @product_bp.route("/products", methods=["GET"])
 def get_products():
     products = Product.query.all()
     return jsonify([p.to_dict() for p in products]), 200
 
-# GET /products/<int:id> - Get one product
 @product_bp.route("/products/<int:id>", methods=["GET"])
 def get_product(id):
     product = Product.query.get(id)
@@ -18,7 +16,6 @@ def get_product(id):
         return jsonify({"error": "Product not found"}), 404
     return jsonify(product.to_dict()), 200
 
-# POST /products - Create a product
 @product_bp.route("/products", methods=["POST"])
 def create_product():
     data = request.get_json()
@@ -41,7 +38,6 @@ def create_product():
         db.session.rollback()
         return jsonify({"error": "Product with this name or SKU already exists"}), 409
 
-# PUT /products/<int:id> - Update a product
 @product_bp.route("/products/<int:id>", methods=["PUT"])
 def update_product(id):
     product = Product.query.get(id)
@@ -56,7 +52,6 @@ def update_product(id):
     db.session.commit()
     return jsonify(product.to_dict()), 200
 
-# DELETE /products/<int:id> - Delete a product
 @product_bp.route("/products/<int:id>", methods=["DELETE"])
 def delete_product(id):
     product = Product.query.get(id)

@@ -23,10 +23,8 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    # Allow CORS for frontend Vite server
     CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 
-    # Register Blueprints
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(purchases_bp)
     app.register_blueprint(product_bp)

@@ -3,13 +3,11 @@ from ..models import db, PurchaseItem, Product, Purchase
 
 purchase_item_bp = Blueprint("purchase_item_bp", __name__)
 
-# GET /purchase_items - List all purchase items
 @purchase_item_bp.route("/purchase_items", methods=["GET"])
 def get_purchase_items():
     items = PurchaseItem.query.all()
     return jsonify([item.to_dict() for item in items]), 200
 
-# GET /purchase_items/<int:id> - Get a single purchase item
 @purchase_item_bp.route("/purchase_items/<int:id>", methods=["GET"])
 def get_purchase_item(id):
     item = PurchaseItem.query.get(id)
@@ -17,7 +15,6 @@ def get_purchase_item(id):
         return jsonify({"error": "Purchase item not found"}), 404
     return jsonify(item.to_dict()), 200
 
-# POST /purchase_items - Create a new purchase item
 @purchase_item_bp.route("/purchase_items", methods=["POST"])
 def create_purchase_item():
     data = request.get_json()
@@ -50,7 +47,6 @@ def create_purchase_item():
     except ValueError:
         return jsonify({"error": "Invalid number format for quantity or cost"}), 400
 
-# PUT /purchase_items/<int:id> - Update a purchase item
 @purchase_item_bp.route("/purchase_items/<int:id>", methods=["PUT"])
 def update_purchase_item(id):
     item = PurchaseItem.query.get(id)
@@ -65,7 +61,6 @@ def update_purchase_item(id):
     db.session.commit()
     return jsonify(item.to_dict()), 200
 
-# DELETE /purchase_items/<int:id> - Delete a purchase item
 @purchase_item_bp.route("/purchase_items/<int:id>", methods=["DELETE"])
 def delete_purchase_item(id):
     item = PurchaseItem.query.get(id)
