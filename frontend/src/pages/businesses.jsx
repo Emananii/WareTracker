@@ -14,18 +14,29 @@ import {
 import { Search, Plus, Edit, MapPin } from "lucide-react";
 import AddBusinessModal from "@/components/businesses/add-business-modal";
 import EditBusinessModal from "@/components/businesses/edit-business-modal";
-import { queryClient } from "@/lib/queryClient";
+import ViewBusinessModal from "@/components/businesses/view-business-modal";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
 
 export default function Businesses() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState(null);
+  const [viewingBusiness, setViewingBusiness] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
-  const { data: businesses = [], isLoading } = useQuery({
-    queryKey: ["${BASE_URL}/business_locations"],
+  const {
+    data: businesses = [],
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["business_locations"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/business_locations`);
+      if (!res.ok) throw new Error("Failed to fetch business locations");
+      return res.json();
+    },
   });
 
   const filteredBusinesses = businesses.filter((business) =>
@@ -39,6 +50,18 @@ export default function Businesses() {
         <Card className="animate-pulse">
           <CardContent className="p-6">
             <div className="h-20 bg-gray-200 rounded" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6 text-red-500">
+            Error loading business locations: {error.message}
           </CardContent>
         </Card>
       </div>
@@ -82,13 +105,22 @@ export default function Businesses() {
           filteredBusinesses.map((business) => (
             <Card
               key={business.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+              onClick={() => setViewingBusiness(business)}
+              className={`bg-white rounded-xl shadow-sm border ${
+                business.is_active
+                  ? "border-gray-200 hover:shadow-md"
+                  : "border-red-200 bg-red-50 text-gray-400"
+              } transition-shadow cursor-pointer`}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                      <MapPin className="h-5 w-5 text-blue-600" />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${
+                        business.is_active ? "bg-blue-100" : "bg-red-100"
+                      }`}
+                    >
+                      <MapPin className={`h-5 w-5 ${business.is_active ? "text-blue-600" : "text-red-600"}`} />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">{business.name}</h3>
@@ -98,7 +130,10 @@ export default function Businesses() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setEditingBusiness(business)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingBusiness(business);
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -109,6 +144,15 @@ export default function Businesses() {
                     <p className="text-sm text-gray-600">
                       {business.address || "No address provided"}
                     </p>
+                  </div>
+                  <div>
+                    <span
+                      className={`inline-block text-xs font-medium rounded px-2 py-1 ${
+                        business.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {business.is_active ? "Active" : "Inactive"}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -153,15 +197,29 @@ export default function Businesses() {
             <TableBody>
               {filteredBusinesses.length > 0 ? (
                 filteredBusinesses.map((business) => (
-                  <TableRow key={business.id} className="hover:bg-gray-50">
+                  <TableRow
+                    key={business.id}
+                    onClick={() => setViewingBusiness(business)}
+                    className={`hover:bg-gray-50 cursor-pointer ${
+                      !business.is_active ? "opacity-60 bg-red-50" : ""
+                    }`}
+                  >
                     <TableCell className="font-medium">#{business.id}</TableCell>
-                    <TableCell>{business.name}</TableCell>
+                    <TableCell>
+                      {business.name}
+                      {!business.is_active && (
+                        <span className="ml-2 text-xs text-red-600">(Inactive)</span>
+                      )}
+                    </TableCell>
                     <TableCell>{business.address || "N/A"}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setEditingBusiness(business)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingBusiness(business);
+                        }}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -190,6 +248,13 @@ export default function Businesses() {
           business={editingBusiness}
           isOpen={true}
           onClose={() => setEditingBusiness(null)}
+        />
+      )}
+      {viewingBusiness && (
+        <ViewBusinessModal
+          business={viewingBusiness}
+          isOpen={true}
+          onClose={() => setViewingBusiness(null)}
         />
       )}
     </div>

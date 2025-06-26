@@ -155,7 +155,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
         setSearchQuery("");
         onClose();
         window.location.reload();
-      }, 1500); // 300ms to avoid abrupt closure before user sees toast
+      }, 1500);
 
       queryClient.invalidateQueries({ queryKey: ["/purchases"] });
     },

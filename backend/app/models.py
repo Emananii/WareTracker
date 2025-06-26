@@ -161,9 +161,19 @@ class BusinessLocation(db.Model, SerializerMixin):
     phone = db.Column(db.String(50))
     notes = db.Column(db.Text)
 
-    stock_transfers = db.relationship(
-        "StockTransfer", backref="location", cascade="all, delete-orphan")
+    # Status column for activation
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_deleted = db.Column(db.Boolean, default=False)
 
+
+    # Relationships
+    stock_transfers = db.relationship(
+        "StockTransfer",
+        backref="location",
+        cascade="all, delete-orphan"
+    )
+
+    # Serialization config
     serialize_rules = ("-stock_transfers.location",)
 
     def to_dict(self):
@@ -174,6 +184,7 @@ class BusinessLocation(db.Model, SerializerMixin):
             "contact_person": self.contact_person,
             "phone": self.phone,
             "notes": self.notes,
+            "is_active": self.is_active,
         }
 
 

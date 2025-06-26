@@ -8,13 +8,13 @@ suppliers_bp = Blueprint("suppliers", __name__, url_prefix="/suppliers")
 # GET all active suppliers (exclude soft-deleted)
 from sqlalchemy import or_, false
 
+@suppliers_bp.route("", methods=["GET"])
 @suppliers_bp.route("/", methods=["GET"])
 def get_suppliers():
     suppliers = Supplier.query.filter(
         or_(Supplier.is_deleted == false(), Supplier.is_deleted == None)
     ).all()
     return jsonify([s.to_dict() for s in suppliers]), 200
-
 
 
 # GET a single supplier unless it's soft-deleted

@@ -4,6 +4,9 @@ import { z } from "zod";
 export const insertBusinessSchema = z.object({
   name: z.string().min(2, "Business name must be at least 2 characters."),
   address: z.string().min(5, "Address must be at least 5 characters."),
+  contact_person: z.string().optional(),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 // Category form validation
