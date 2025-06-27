@@ -12,7 +12,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
 
-// ✅ Correct import path for the edit modal
 import EditStockTransferModal from "@/components/stock-transfers/edit-stock-transfer-modal";
 
 const formatDate = (rawDate) => {
@@ -128,6 +127,7 @@ export default function ViewStockTransferModal({
               Print
             </Button>
 
+            {/* Only show edit and delete if editable */}
             {isEditable && (
               <>
                 <Button variant="outline" onClick={() => setEditing(true)}>

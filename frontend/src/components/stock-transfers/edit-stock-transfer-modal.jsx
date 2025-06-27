@@ -91,6 +91,7 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
         (transfer.items ?? []).map((item) => ({
           ...item,
           product_id: item.product?.id,
+          quantity: item.quantity.toString(), // track as string
         }))
       );
     }
@@ -115,7 +116,20 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {
-      await apiRequest("PUT", `${BASE_URL}/stock_transfers/${transfer.id}`, data);
+      await apiRequest("PUT", `${BASE_URL}/stock_transfers/${transfer.id}`, {
+        location_id: data.location_id,
+        notes: data.notes,
+      });
+
+      for (const item of items) {
+        const quantity = parseInt(item.quantity, 10);
+        if (!isNaN(quantity) && quantity > 0) {
+          await apiRequest("PUT", `${BASE_URL}/stock_transfer_items/${item.id}`, {
+            product_id: item.product_id,
+            quantity,
+          });
+        }
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["stock_transfers"] });
@@ -158,15 +172,7 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
   });
 
   const onSubmit = (data) => {
-    const payload = {
-      ...data,
-      items: items.map((item) => ({
-        id: item.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-      })),
-    };
-    updateMutation.mutate(payload);
+    updateMutation.mutate(data);
   };
 
   if (!transfer) return null;
@@ -230,9 +236,7 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
             />
 
             <div className="space-y-3">
-              <h4 className="text-md font-semibold text-gray-700">
-                Transfer Items
-              </h4>
+              <h4 className="text-md font-semibold text-gray-700">Transfer Items</h4>
               {items.map((item, index) => (
                 <div key={item.id} className="flex items-center gap-2 flex-wrap">
                   <div className="flex-1 min-w-[180px]">
@@ -258,10 +262,7 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
                       disabled={!isEditable}
                     >
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder="Select Product"
-                          defaultValue={item.product?.name}
-                        />
+                        <SelectValue placeholder="Select Product" />
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((product) => (
@@ -274,17 +275,18 @@ export default function EditStockTransferModal({ isOpen, onClose, transfer }) {
                   </div>
 
                   <Input
-                    type="number"
-                    min="1"
+                    type="text"
                     className="w-24"
                     value={item.quantity}
                     onChange={(e) => {
-                      const newQty = parseInt(e.target.value) || 0;
-                      setItems((prev) =>
-                        prev.map((itm, i) =>
-                          i === index ? { ...itm, quantity: newQty } : itm
-                        )
-                      );
+                      const input = e.target.value;
+                      if (/^\d*$/.test(input)) {
+                        setItems((prev) =>
+                          prev.map((itm, i) =>
+                            i === index ? { ...itm, quantity: input } : itm
+                          )
+                        );
+                      }
                     }}
                     disabled={!isEditable}
                   />
