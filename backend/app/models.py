@@ -57,6 +57,9 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
+    # New field for tracking current inventory level
+    stock_level = db.Column(db.Integer, nullable=False, default=0)
+
     purchase_items = db.relationship(
         "PurchaseItem", backref="product", cascade="all, delete-orphan")
     stock_transfer_items = db.relationship(
@@ -76,6 +79,7 @@ class Product(db.Model, SerializerMixin):
             "unit": self.unit,
             "description": self.description,
             "category_id": self.category_id,
+            "stock_level": self.stock_level,
             "category": self.category.to_dict() if self.category else None
         }
 
@@ -193,13 +197,21 @@ class StockTransfer(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # NEW: Defines whether the stock is entering or leaving the warehouse
+    transfer_type = db.Column(db.String(10), nullable=False)  # "IN" or "OUT"
+
+    # Optional location for recordkeeping (e.g., which branch it came from or went to)
     location_id = db.Column(
         db.Integer,
-        db.ForeignKey("business_locations.id",
-                      name="fk_stock_transfers_location_id"),
-        nullable=False
+        db.ForeignKey("business_locations.id", name="fk_stock_transfers_location_id"),
+        nullable=True  # nullable since not always needed
     )
+    location = db.relationship("BusinessLocation", backref="stock_transfers")
+
     notes = db.Column(db.Text)
+
+    is_deleted = db.Column(db.Boolean, default=False)  # Soft delete flag
 
     items = db.relationship(
         "StockTransferItem",
@@ -214,9 +226,11 @@ class StockTransfer(db.Model, SerializerMixin):
         return {
             "id": self.id,
             "date": self.date.isoformat() if self.date else None,
+            "transfer_type": self.transfer_type,
             "location_id": self.location_id,
-            "notes": self.notes,
             "location": self.location.to_dict() if self.location else None,
+            "notes": self.notes,
+            "is_deleted": self.is_deleted,
             "items": [item.to_dict() for item in self.items]
         }
 

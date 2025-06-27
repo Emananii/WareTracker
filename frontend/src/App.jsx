@@ -12,7 +12,7 @@ import MobileNav from "@/components/layout/mobile-nav";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
 import Purchases from "@/pages/purchases";
-import Movements from "@/pages/movements";
+import StockTransfers from "@/pages/stock-transfers"; // ✅ FIXED: proper component import
 import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
@@ -73,7 +73,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/inventory" component={Inventory} />
       <Route path="/purchases" component={Purchases} />
-      <Route path="/movements" component={Movements} />
+      <Route path="/stock-transfers" component={StockTransfers} />
       <Route path="/businesses" component={Businesses} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/reports" component={Reports} />
