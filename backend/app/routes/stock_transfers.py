@@ -62,15 +62,15 @@ def create_stock_transfer():
             if quantity < 0:
                 return jsonify({"error": f"Invalid quantity for product {product.name}"}), 400
 
-            # Adjust warehouse stock
+            # ✅ Fix: Adjust using stock_level
             if transfer_type == "IN":
-                product.quantity += quantity
+                product.stock_level += quantity
             else:
-                if product.quantity < quantity:
+                if product.stock_level < quantity:
                     return jsonify({
-                        "error": f"Not enough stock for product {product.name}. Available: {product.quantity}, Needed: {quantity}"
+                        "error": f"Not enough stock for product {product.name}. Available: {product.stock_level}, Needed: {quantity}"
                     }), 400
-                product.quantity -= quantity
+                product.stock_level -= quantity
 
             transfer_item = StockTransferItem(
                 stock_transfer_id=transfer.id,
@@ -125,15 +125,15 @@ def delete_stock_transfer(id):
                 continue  # silently skip
 
             if transfer.transfer_type == "IN":
-                # Remove the stock that was previously added
-                if product.quantity < item.quantity:
+                # ✅ Remove stock that was added (reverse IN)
+                if product.stock_level < item.quantity:
                     return jsonify({
                         "error": f"Cannot delete: insufficient stock to reverse IN transfer for product {product.name}"
                     }), 400
-                product.quantity -= item.quantity
+                product.stock_level -= item.quantity
             elif transfer.transfer_type == "OUT":
-                # Add the stock that was previously removed
-                product.quantity += item.quantity
+                # ✅ Add back stock that was removed (reverse OUT)
+                product.stock_level += item.quantity
 
         transfer.is_deleted = True
         db.session.commit()

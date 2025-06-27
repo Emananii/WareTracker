@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,20 @@ import {
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
 import AddStockTransferModal from "@/components/stock-transfers/add-stock-transfer-modal";
-import { BASE_URL } from "@/lib/constants"; // ✅ if you’re using a base path
+import ViewStockTransferModal from "@/components/stock-transfers/view-stock-transfer-modal";
+import { BASE_URL } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
 
 export default function StockTransfers() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [viewingTransfer, setViewingTransfer] = useState(null);
+  const [currentlyViewingId, setCurrentlyViewingId] = useState(null);
+  const { toast } = useToast();
 
-  // ✅ Fetch all stock transfers
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+
   const { data: transfers = [], isLoading } = useQuery({
     queryKey: ["stock_transfers"],
     queryFn: async () => {
@@ -27,7 +35,6 @@ export default function StockTransfers() {
     },
   });
 
-  // ✅ Fetch businesses (locations)
   const { data: businesses = [] } = useQuery({
     queryKey: ["business_locations"],
     queryFn: async () => {
@@ -37,7 +44,24 @@ export default function StockTransfers() {
     },
   });
 
-  // ✅ Format date into a readable string
+  const fetchTransferDetails = async (id) => {
+    setCurrentlyViewingId(id);
+    try {
+      const res = await fetch(`${BASE_URL}/stock_transfers/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch stock transfer details");
+      const data = await res.json();
+      setViewingTransfer(data);
+    } catch (err) {
+      toast({
+        title: "Fetch error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setCurrentlyViewingId(null);
+    }
+  };
+
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -48,34 +72,75 @@ export default function StockTransfers() {
     }).format(new Date(date));
   };
 
-  // ✅ Lookup location name
   const getLocationName = (id) => {
     const location = businesses.find((b) => b.id === id);
     return location?.name || "Unknown";
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <Card className="animate-pulse">
-          <CardContent className="p-6">
-            <div className="h-20 bg-gray-200 rounded"></div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const filteredTransfers = transfers.filter((transfer) => {
+    const transferDate = new Date(transfer.date);
+    const from = startDate ? new Date(startDate) : null;
+    const to = endDate ? new Date(endDate) : null;
+
+    const matchesDateRange =
+      (!from || transferDate >= from) && (!to || transferDate <= to);
+
+    const matchesLocation =
+      !selectedLocationId || transfer.location_id == selectedLocationId;
+
+    return matchesDateRange && matchesLocation;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">Stock Transfers</h1>
         <Button onClick={() => setIsAddModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Transfer
+          <Plus className="h-4 w-4 mr-2" /> New Transfer
         </Button>
       </div>
+
+      {/* Filter Controls */}
+      <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <CardContent className="p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-800">Filter Transfers</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-gray-600">Location</label>
+              <select
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="">All Locations</option>
+                {businesses.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Transfers Table */}
       <Card className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -85,23 +150,58 @@ export default function StockTransfers() {
               <TableRow className="bg-gray-50">
                 <TableHead>ID</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transfers.length > 0 ? (
-                transfers.map((transfer) => (
-                  <TableRow key={transfer.id} className="hover:bg-gray-50">
+              {filteredTransfers.length > 0 ? (
+                filteredTransfers.map((transfer) => (
+                  <TableRow
+                    key={transfer.id}
+                    className="hover:bg-gray-100 cursor-pointer"
+                    onClick={() => fetchTransferDetails(transfer.id)}
+                  >
                     <TableCell>{transfer.id}</TableCell>
                     <TableCell>{formatDate(transfer.date)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                          transfer.transfer_type === "IN"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {transfer.transfer_type}
+                      </span>
+                    </TableCell>
                     <TableCell>{getLocationName(transfer.location_id)}</TableCell>
                     <TableCell>{transfer.notes || "-"}</TableCell>
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()} // prevent row click
+                    >
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation(); // prevent row click
+                          fetchTransferDetails(transfer.id);
+                        }}
+                        disabled={currentlyViewingId === transfer.id}
+                      >
+                        {currentlyViewingId === transfer.id
+                          ? "Loading..."
+                          : "View Details"}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     No stock transfers found
                   </TableCell>
                 </TableRow>
@@ -111,11 +211,18 @@ export default function StockTransfers() {
         </div>
       </Card>
 
-      {/* Add Modal */}
       <AddStockTransferModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+
+      {viewingTransfer && (
+        <ViewStockTransferModal
+          isOpen={!!viewingTransfer}
+          onClose={() => setViewingTransfer(null)}
+          transfer={viewingTransfer}
+        />
+      )}
     </div>
   );
 }

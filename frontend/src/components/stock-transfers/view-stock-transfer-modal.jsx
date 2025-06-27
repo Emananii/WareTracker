@@ -11,7 +11,9 @@ import { Trash2, PencilLine, Printer } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
-import EditStockTransferModal from "@/components/stock-transfers/edit-stock-transfer-modal"; // assumed to exist
+
+// ✅ Correct import path for the edit modal
+import EditStockTransferModal from "@/components/stock-transfers/edit-stock-transfer-modal";
 
 const formatDate = (rawDate) => {
   const date = new Date(rawDate);
@@ -63,6 +65,7 @@ export default function ViewStockTransferModal({
 
   return (
     <>
+      {/* View Modal */}
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-3xl" aria-describedby="stock-transfer-description">
           <DialogHeader>
@@ -118,7 +121,7 @@ export default function ViewStockTransferModal({
             )}
           </div>
 
-          {/* Footer Buttons */}
+          {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-6">
             <Button variant="outline" onClick={onPrint}>
               <Printer className="w-4 h-4 mr-2" />
@@ -154,7 +157,7 @@ export default function ViewStockTransferModal({
           transfer={transfer}
           onUpdated={() => {
             setEditing(false);
-            onClose(); // optionally close view modal after edit
+            onClose();
             queryClient.invalidateQueries({ queryKey: ["stock_transfers"] });
           }}
         />

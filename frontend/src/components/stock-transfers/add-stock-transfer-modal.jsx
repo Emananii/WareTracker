@@ -38,7 +38,12 @@ import { Button } from "@/components/ui/button";
 
 import { Trash2 } from "lucide-react";
 
+// --- Zod Schema ---
 const formSchema = z.object({
+  transfer_type: z.enum(["IN", "OUT"], {
+    required_error: "Transfer type is required",
+    invalid_type_error: "Transfer type must be 'IN' or 'OUT'",
+  }),
   location_id: z.coerce.number().min(1, "Location is required"),
   notes: z.string().optional(),
   items: z
@@ -77,6 +82,7 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      transfer_type: "IN",
       location_id: undefined,
       notes: "",
       items: [],
@@ -113,20 +119,12 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
   const createTransferMutation = useMutation({
     mutationFn: async (data) => {
       const transfer = await apiRequest("POST", `${BASE_URL}/stock_transfers`, {
+        transfer_type: data.transfer_type,
         location_id: data.location_id,
         notes: data.notes,
+        date: new Date().toISOString(),
+        items: data.items,
       });
-
-      await Promise.all(
-        items.map((item) =>
-          apiRequest("POST", `${BASE_URL}/stock_transfer_items`, {
-            stock_transfer_id: transfer.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-          })
-        )
-      );
-
       return transfer;
     },
     onSuccess: () => {
@@ -143,7 +141,7 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
         window.location.reload();
       }, 1500);
 
-      queryClient.invalidateQueries({ queryKey: ["/stock_transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_transfers"] });
     },
     onError: (error) => {
       toast({
@@ -173,6 +171,32 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Transfer Type */}
+            <FormField
+              control={form.control}
+              name="transfer_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Transfer Type</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="IN">IN (Stock In)</SelectItem>
+                      <SelectItem value="OUT">OUT (Stock Out)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* Location Select */}
             <FormField
               control={form.control}
@@ -236,7 +260,6 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
               <h4 className="text-md font-semibold text-gray-700">Selected Items</h4>
               {items.map((item, index) => {
                 const product = products.find((p) => p.id === item.product_id);
-
                 return (
                   <div
                     key={index}
@@ -252,7 +275,9 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
                         type="number"
                         min="1"
                         value={item.quantity.toString()}
-                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(index, "quantity", parseInt(e.target.value))
+                        }
                       />
                     </div>
                     <div className="flex justify-end">
