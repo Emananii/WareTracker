@@ -26,7 +26,10 @@ export default function StockTransfers() {
   const [endDate, setEndDate] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("");
 
-  const { data: transfers = [], isLoading } = useQuery({
+  const [sortKey, setSortKey] = useState("date"); // default sort
+  const [sortDirection, setSortDirection] = useState("desc"); // "asc" or "desc"
+
+  const { data: transfers = [] } = useQuery({
     queryKey: ["stock_transfers"],
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/stock_transfers`);
@@ -43,6 +46,39 @@ export default function StockTransfers() {
       return res.json();
     },
   });
+
+  const handleSort = (key) => {
+    if (key === sortKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortedTransfers = (list) => {
+    const sorted = [...list].sort((a, b) => {
+      let aValue = a[sortKey];
+      let bValue = b[sortKey];
+
+      if (sortKey === "date") {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (sortKey === "location") {
+        aValue = getLocationName(a.location_id).toLowerCase();
+        bValue = getLocationName(b.location_id).toLowerCase();
+      } else if (sortKey === "type") {
+        aValue = a.transfer_type;
+        bValue = b.transfer_type;
+      }
+
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  };
 
   const fetchTransferDetails = async (id) => {
     setCurrentlyViewingId(id);
@@ -77,19 +113,26 @@ export default function StockTransfers() {
     return location?.name || "Unknown";
   };
 
-  const filteredTransfers = transfers.filter((transfer) => {
-    const transferDate = new Date(transfer.date);
-    const from = startDate ? new Date(startDate) : null;
-    const to = endDate ? new Date(endDate) : null;
+  const filteredTransfers = getSortedTransfers(
+    transfers.filter((transfer) => {
+      const transferDate = new Date(transfer.date);
+      const from = startDate ? new Date(startDate) : null;
+      const to = endDate ? new Date(endDate) : null;
 
-    const matchesDateRange =
-      (!from || transferDate >= from) && (!to || transferDate <= to);
+      const matchesDateRange =
+        (!from || transferDate >= from) && (!to || transferDate <= to);
 
-    const matchesLocation =
-      !selectedLocationId || transfer.location_id == selectedLocationId;
+      const matchesLocation =
+        !selectedLocationId || transfer.location_id == selectedLocationId;
 
-    return matchesDateRange && matchesLocation;
-  });
+      return matchesDateRange && matchesLocation;
+    })
+  );
+
+  const renderSortArrow = (key) => {
+    if (sortKey !== key) return null;
+    return sortDirection === "asc" ? " ▲" : " ▼";
+  };
 
   return (
     <div className="space-y-6">
@@ -148,10 +191,18 @@ export default function StockTransfers() {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead>ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead onClick={() => handleSort("id")} className="cursor-pointer">
+                  ID{renderSortArrow("id")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("date")} className="cursor-pointer">
+                  Date{renderSortArrow("date")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("type")} className="cursor-pointer">
+                  Type{renderSortArrow("type")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("location")} className="cursor-pointer">
+                  Location{renderSortArrow("location")}
+                </TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -181,13 +232,13 @@ export default function StockTransfers() {
                     <TableCell>{transfer.notes || "-"}</TableCell>
                     <TableCell
                       className="text-right"
-                      onClick={(e) => e.stopPropagation()} // prevent row click
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={(e) => {
-                          e.stopPropagation(); // prevent row click
+                          e.stopPropagation();
                           fetchTransferDetails(transfer.id);
                         }}
                         disabled={currentlyViewingId === transfer.id}
