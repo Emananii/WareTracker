@@ -1,3 +1,4 @@
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy.orm import relationship
@@ -11,7 +12,9 @@ class Category(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
-    description = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
+    
 
     products = db.relationship(
         "Product", backref="category", cascade="all, delete-orphan")
@@ -23,6 +26,7 @@ class Category(db.Model, SerializerMixin):
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "is_deleted": self.is_deleted,
         }
 
 
@@ -39,22 +43,14 @@ class Supplier(db.Model, SerializerMixin):
     serialize_rules = ("-purchases",)
 
 
-# ✅ Product
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy_serializer import SerializerMixin
-from datetime import datetime
-
-db = SQLAlchemy()
-
-# ✅ Product Model 
 class Product(db.Model, SerializerMixin):
     __tablename__ = "products"
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True)  
-    sku = db.Column(db.String(50), unique=True)  
-    quantity = db.Column(db.Integer, nullable=False, default=0)  
-    location = db.Column(db.String(100), nullable=False)  
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    sku = db.Column(db.String(50), unique=True)
+    unit = db.Column(db.String(20))
+    description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     category_id = db.Column(
@@ -63,30 +59,29 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
-   
-    purchase_items = db.relationship("PurchaseItem", backref="product", cascade="all, delete-orphan")
-    stock_transfer_items = db.relationship("StockTransferItem", backref="product", cascade="all, delete-orphan")
+    purchase_items = db.relationship(
+        "PurchaseItem", backref="product", cascade="all, delete-orphan")
+    stock_transfer_items = db.relationship(
+        "StockTransferItem", backref="product", cascade="all, delete-orphan")
 
-   
     serialize_rules = (
         '-category.products',
         '-purchase_items.product',
         '-stock_transfer_items.product',
     )
 
-    
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
             "sku": self.sku,
-            "quantity": self.quantity,
-            "location": self.location,
+            "unit": self.unit,
+            "description": self.description,
             "category_id": self.category_id,
             "category": self.category.to_dict() if self.category else None
         }
 
-# ✅ Purchase
+
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = 'purchases'
 

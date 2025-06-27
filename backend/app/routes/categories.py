@@ -3,6 +3,7 @@ from ..models import db, Category
 
 category_bp = Blueprint("category_bp", __name__)
 
+
 @category_bp.route("/categories", methods=["GET"])
 def get_categories():
     categories = Category.query.all()
@@ -10,10 +11,11 @@ def get_categories():
 
 @category_bp.route("/categories/<int:id>", methods=["GET"])
 def get_category(id):
-    category = Category.query.get(id)
+    category = Category.query.filter_by(id=id, is_deleted=False).first()
     if not category:
         return jsonify({"error": "Category not found"}), 404
     return jsonify(category.to_dict()), 200
+
 
 @category_bp.route("/categories", methods=["POST"])
 def create_category():
@@ -43,12 +45,16 @@ def update_category(id):
     db.session.commit()
     return jsonify(category.to_dict()), 200
 
+
 @category_bp.route("/categories/<int:id>", methods=["DELETE"])
 def delete_category(id):
     category = Category.query.get(id)
     if not category:
         return jsonify({"error": "Category not found"}), 404
 
-    db.session.delete(category)
+    
+    category.is_deleted = True
     db.session.commit()
-    return jsonify({"message": f"Category #{id} deleted"}), 200
+
+    return jsonify({"message": "Category soft-deleted successfully."}), 200
+
