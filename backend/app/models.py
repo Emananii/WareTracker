@@ -40,6 +40,8 @@ class Supplier(db.Model, SerializerMixin):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    is_deleted = db.Column(db.Boolean, default=False)
+
     serialize_rules = ("-purchases",)
 
 
@@ -58,6 +60,9 @@ class Product(db.Model, SerializerMixin):
         db.ForeignKey("categories.id", name="fk_products_category_id"),
         nullable=False
     )
+
+    # New field for tracking current inventory level
+    stock_level = db.Column(db.Integer, nullable=False, default=0)
 
     purchase_items = db.relationship(
         "PurchaseItem", backref="product", cascade="all, delete-orphan")
@@ -78,6 +83,7 @@ class Product(db.Model, SerializerMixin):
             "unit": self.unit,
             "description": self.description,
             "category_id": self.category_id,
+            "stock_level": self.stock_level,
             "category": self.category.to_dict() if self.category else None
         }
 
@@ -163,9 +169,11 @@ class BusinessLocation(db.Model, SerializerMixin):
     phone = db.Column(db.String(50))
     notes = db.Column(db.Text)
 
-    stock_transfers = db.relationship(
-        "StockTransfer", backref="location", cascade="all, delete-orphan")
+    # Status column for activation
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_deleted = db.Column(db.Boolean, default=False)
 
+    # Serialization config
     serialize_rules = ("-stock_transfers.location",)
 
     def to_dict(self):
@@ -176,21 +184,29 @@ class BusinessLocation(db.Model, SerializerMixin):
             "contact_person": self.contact_person,
             "phone": self.phone,
             "notes": self.notes,
+            "is_active": self.is_active,
         }
-
 
 class StockTransfer(db.Model, SerializerMixin):
     __tablename__ = "stock_transfers"
 
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # NEW: Defines whether the stock is entering or leaving the warehouse
+    transfer_type = db.Column(db.String(10), nullable=False)  # "IN" or "OUT"
+
+    # Optional location for recordkeeping (e.g., which branch it came from or went to)
     location_id = db.Column(
         db.Integer,
-        db.ForeignKey("business_locations.id",
-                      name="fk_stock_transfers_location_id"),
-        nullable=False
+        db.ForeignKey("business_locations.id", name="fk_stock_transfers_location_id"),
+        nullable=True  # nullable since not always needed
     )
+    location = db.relationship("BusinessLocation", backref="stock_transfers")
+
     notes = db.Column(db.Text)
+
+    is_deleted = db.Column(db.Boolean, default=False)  # Soft delete flag
 
     items = db.relationship(
         "StockTransferItem",
@@ -205,12 +221,13 @@ class StockTransfer(db.Model, SerializerMixin):
         return {
             "id": self.id,
             "date": self.date.isoformat() if self.date else None,
+            "transfer_type": self.transfer_type,
             "location_id": self.location_id,
-            "notes": self.notes,
             "location": self.location.to_dict() if self.location else None,
+            "notes": self.notes,
+            "is_deleted": self.is_deleted,
             "items": [item.to_dict() for item in self.items]
         }
-
 
 class StockTransferItem(db.Model, SerializerMixin):
     __tablename__ = "stock_transfer_items"

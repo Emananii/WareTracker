@@ -1,9 +1,9 @@
 from app import create_app
 from app.models import (
     db, Supplier, Purchase, Product, PurchaseItem,
-    Category, BusinessLocation, StockTransfer, StockTransferItem
+    Category, BusinessLocation, StockTransfer, StockTransferItem,
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 app = create_app()
@@ -72,15 +72,10 @@ with app.app_context():
     purchases = []
 
     for i in range(8):
-        
-        if i < 3:
-            days_ago = random.randint(31, 90)
-        else:
-            days_ago = random.randint(0, 29)
-
+        days_ago = random.randint(0, 90)
         purchase = Purchase(
             supplier_id=suppliers[i % len(suppliers)].id,
-            purchase_date=datetime.utcnow() - timedelta(days=days_ago),
+            purchase_date=datetime.now(timezone.utc) - timedelta(days=days_ago),
             total_cost=0.0,
             notes=f"Generated purchase {i+1}"
         )
@@ -116,7 +111,8 @@ with app.app_context():
     for i in range(3):
         transfer = StockTransfer(
             location_id=random.choice(locations).id,
-            date=datetime.utcnow() - timedelta(days=random.randint(1, 10)),
+            date=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 10)),
+            transfer_type=random.choice(["IN", "OUT"]),
             notes=f"Stock transfer #{i+1}"
         )
         db.session.add(transfer)
