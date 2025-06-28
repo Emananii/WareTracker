@@ -13,6 +13,8 @@ class Category(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
+    
 
     products = db.relationship(
         "Product", backref="category", cascade="all, delete-orphan")
@@ -24,6 +26,7 @@ class Category(db.Model, SerializerMixin):
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "is_deleted": self.is_deleted,
         }
 
 
@@ -58,9 +61,6 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
-    # New field for tracking current inventory level
-    stock_level = db.Column(db.Integer, nullable=False, default=0)
-
     purchase_items = db.relationship(
         "PurchaseItem", backref="product", cascade="all, delete-orphan")
     stock_transfer_items = db.relationship(
@@ -71,6 +71,14 @@ class Product(db.Model, SerializerMixin):
         '-purchase_items.product',
         '-stock_transfer_items.product',
     )
+    stock_level = db.Column(db.Integer, nullable=False, default=0)
+
+
+    @property
+    def computed_stock_level(self):
+        total_purchased = sum(item.quantity for item in self.purchase_items)
+        total_transferred = sum(item.quantity for item in self.stock_transfer_items)
+        return total_purchased - total_transferred
 
     def to_dict(self):
         return {
@@ -80,8 +88,8 @@ class Product(db.Model, SerializerMixin):
             "unit": self.unit,
             "description": self.description,
             "category_id": self.category_id,
-            "stock_level": self.stock_level,
-            "category": self.category.to_dict() if self.category else None
+            "category": self.category.to_dict() if self.category else None,
+            "stock_level": self.computed_stock_level,  
         }
 
 
@@ -169,7 +177,6 @@ class BusinessLocation(db.Model, SerializerMixin):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_deleted = db.Column(db.Boolean, default=False)
 
-    # ✅ FIXED RELATIONSHIP: use back_populates instead of backref
     stock_transfers = db.relationship(
         "StockTransfer",
         back_populates="location",  # 👈 no more circular backref
@@ -204,7 +211,6 @@ class StockTransfer(db.Model, SerializerMixin):
         nullable=True
     )
 
-    # ✅ FIXED RELATIONSHIP: use back_populates instead of defining backref
     location = db.relationship("BusinessLocation", back_populates="stock_transfers")
 
     notes = db.Column(db.Text)
