@@ -61,9 +61,7 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
-    # New field for tracking current inventory level
-    stock_level = db.Column(db.Integer, nullable=False, default=0)
-
+    # Relationships
     purchase_items = db.relationship(
         "PurchaseItem", backref="product", cascade="all, delete-orphan")
     stock_transfer_items = db.relationship(
@@ -74,6 +72,15 @@ class Product(db.Model, SerializerMixin):
         '-purchase_items.product',
         '-stock_transfer_items.product',
     )
+    stock_level = db.Column(db.Integer, nullable=False, default=0)
+
+
+    # ✅ Add the dynamic stock level here
+    @property
+    def computed_stock_level(self):
+        total_purchased = sum(item.quantity for item in self.purchase_items)
+        total_transferred = sum(item.quantity for item in self.stock_transfer_items)
+        return total_purchased - total_transferred
 
     def to_dict(self):
         return {
@@ -83,10 +90,9 @@ class Product(db.Model, SerializerMixin):
             "unit": self.unit,
             "description": self.description,
             "category_id": self.category_id,
-            "stock_level": self.stock_level,
-            "category": self.category.to_dict() if self.category else None
+            "category": self.category.to_dict() if self.category else None,
+            "stock_level": self.computed_stock_level,  
         }
-
 
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = 'purchases'

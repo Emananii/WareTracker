@@ -11,6 +11,7 @@ from .routes.categories import category_bp
 from .routes.stock_transfers import stock_transfer_bp
 from .routes.stock_transfer_items import stock_transfer_item_bp
 from .routes.business_locations import business_location_bp
+from .routes.dashboard import dashboard_bp
 
 migrate = Migrate()
 
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(stock_transfer_bp)
     app.register_blueprint(stock_transfer_item_bp)
     app.register_blueprint(business_location_bp)
+    app.register_blueprint(dashboard_bp)
 
     @app.route("/")
     def index():
