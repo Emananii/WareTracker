@@ -13,8 +13,6 @@ class Category(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text)
-    is_deleted = db.Column(db.Boolean, default=False)
-    
 
     products = db.relationship(
         "Product", backref="category", cascade="all, delete-orphan")
@@ -26,7 +24,6 @@ class Category(db.Model, SerializerMixin):
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "is_deleted": self.is_deleted,
         }
 
 
@@ -61,7 +58,9 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
-    # Relationships
+    # New field for tracking current inventory level
+    stock_level = db.Column(db.Integer, nullable=False, default=0)
+
     purchase_items = db.relationship(
         "PurchaseItem", backref="product", cascade="all, delete-orphan")
     stock_transfer_items = db.relationship(
@@ -72,15 +71,6 @@ class Product(db.Model, SerializerMixin):
         '-purchase_items.product',
         '-stock_transfer_items.product',
     )
-    stock_level = db.Column(db.Integer, nullable=False, default=0)
-
-
-    # ✅ Add the dynamic stock level here
-    @property
-    def computed_stock_level(self):
-        total_purchased = sum(item.quantity for item in self.purchase_items)
-        total_transferred = sum(item.quantity for item in self.stock_transfer_items)
-        return total_purchased - total_transferred
 
     def to_dict(self):
         return {
@@ -90,9 +80,10 @@ class Product(db.Model, SerializerMixin):
             "unit": self.unit,
             "description": self.description,
             "category_id": self.category_id,
-            "category": self.category.to_dict() if self.category else None,
-            "stock_level": self.computed_stock_level,  
+            "stock_level": self.stock_level,
+            "category": self.category.to_dict() if self.category else None
         }
+
 
 class Purchase(db.Model, SerializerMixin):
     __tablename__ = 'purchases'
@@ -185,7 +176,6 @@ class BusinessLocation(db.Model, SerializerMixin):
         cascade="all, delete-orphan"
     )
 
-    # Serialization config
     serialize_rules = ("-stock_transfers.location",)
 
     def to_dict(self):
@@ -198,6 +188,7 @@ class BusinessLocation(db.Model, SerializerMixin):
             "notes": self.notes,
             "is_active": self.is_active,
         }
+
 
 class StockTransfer(db.Model, SerializerMixin):
     __tablename__ = "stock_transfers"
@@ -239,6 +230,7 @@ class StockTransfer(db.Model, SerializerMixin):
             "is_deleted": self.is_deleted,
             "items": [item.to_dict() for item in self.items]
         }
+
 
 class StockTransferItem(db.Model, SerializerMixin):
     __tablename__ = "stock_transfer_items"

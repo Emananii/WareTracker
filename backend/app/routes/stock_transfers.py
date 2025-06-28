@@ -2,8 +2,7 @@ from flask import Blueprint, request, jsonify
 from ..models import db, StockTransfer, StockTransferItem, BusinessLocation, Product
 from datetime import datetime
 
-stock_transfer_bp = Blueprint("stock_transfer_bp", __name__, url_prefix="/stock_transfers")
-
+stock_transfer_bp = Blueprint("stock_transfer_bp", __name__)
 
 # -------------------- GET All Transfers --------------------
 @stock_transfer_bp.route("/stock_transfers", methods=["GET"])
@@ -25,7 +24,6 @@ def get_stock_transfer(id):
 @stock_transfer_bp.route("/stock_transfers", methods=["POST"])
 def create_stock_transfer():
     data = request.get_json()
-
     try:
         transfer_type = data["transfer_type"]
         location_id = data.get("location_id")
