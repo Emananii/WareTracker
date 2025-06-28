@@ -27,7 +27,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
       return apiRequest("POST", `${BASE_URL}/categories`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: [`{BASE_URL}categories`] });
       toast({
         title: "Success",
         description: "Category added successfully!",
@@ -57,10 +57,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Add New Category
-            </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
+            </DialogTitle>          
           </div>
         </DialogHeader>
 

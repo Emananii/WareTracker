@@ -1,12 +1,24 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { editCategorySchema } from "@/shared/schema"; 
+import { editCategorySchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
@@ -14,10 +26,8 @@ import { BASE_URL } from "@/lib/constants";
 export default function EditCategoryModal({ isOpen, onClose, category }) {
   const { toast } = useToast();
 
-  console.log("Category in EditCategoryModal:", category);
-  console.log("Category ID for PUT request:", category?.id);
-
   const form = useForm({
+    resolver: zodResolver(editCategorySchema),
     defaultValues: {
       name: category?.name || "",
       description: category?.description || "",
@@ -26,12 +36,10 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
 
   const editCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      // ✅ Use full backend URL
       return apiRequest("PUT", `${BASE_URL}categories/${category.id}`, data);
     },
     onSuccess: () => {
-      // ✅ Invalidate using updated query key
-      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}categories`] });
+      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/categories`] });
       toast({
         title: "Success",
         description: "Category updated successfully!",
@@ -62,9 +70,6 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Edit Category
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -91,7 +96,10 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter category description" {...field} />
+                    <Input
+                      placeholder="Enter category description"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -99,7 +107,12 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
             />
 
             <div className="flex space-x-3 pt-4">
-              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={onClose}
+              >
                 Cancel
               </Button>
               <Button
@@ -107,7 +120,9 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
                 disabled={editCategoryMutation.isPending}
               >
-                {editCategoryMutation.isPending ? "Updating..." : "Update Category"}
+                {editCategoryMutation.isPending
+                  ? "Updating..."
+                  : "Update Category"}
               </Button>
             </div>
           </form>

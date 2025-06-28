@@ -1,95 +1,85 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+// components/inventory/EditItemModal.jsx
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Form,
+  FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormControl,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { z } from "zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { BASE_URL } from "@/lib/constants";
 
-const schema = z.object({
+
+const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().min(1, "SKU is required"),
   unit: z.string().min(1, "Unit is required"),
-  categoryId: z.string().min(1, "Category is required"),
+  category_id: z.number().min(1, "Category is required"),
 });
 
-export default function AddItemModal({ isOpen, onClose }) {
-  const form = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      name: "",
-      sku: "",
-      unit: "pcs",
-      categoryId: "",
-    },
-  });
-
+export default function EditItemModal({ isOpen, onClose, item }) {
   const { toast } = useToast();
 
   const { data: categories = [] } = useQuery({
     queryKey: [`${BASE_URL}/categories`],
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/categories`);
-      return await res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
   });
 
-  const mutation = useMutation({
-    mutationFn: (data) => apiRequest("POST", `${BASE_URL}/products`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/products`] });
-      toast({ title: "Success", description: "Item added successfully" });
-      form.reset();
-      onClose();
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      sku: "",
+      unit: "",
+      category_id: undefined,
     },
-    onError: (error) => {
-      let message = error.message;
-      if (message.includes("409")) {
-        message = "An item with this SKU or name already exists.";
-      }
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
+  });
+
+  useEffect(() => {
+    if (item) {
+      form.reset({
+        name: item.name,
+        sku: item.sku,
+        unit: item.unit,
+        category_id: item.category?.id || undefined,
       });
-    },
-  });
+    }
+  }, [item]);
 
-  const onSubmit = (values) => {
-    values.category_id = parseInt(values.categoryId);
-    delete values.categoryId;
-    mutation.mutate(values);
+  const onSubmit = async (data) => {
+    try {
+      await apiRequest("PUT", `${BASE_URL}/products/${item.id}`, data);
+      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/products`] });
+      toast({ title: "Success", description: "Item updated successfully." });
+      onClose();
+    } catch (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Inventory Item</DialogTitle>
+          <DialogTitle>Edit Item</DialogTitle>
         </DialogHeader>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -99,12 +89,13 @@ export default function AddItemModal({ isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} placeholder="Product name" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="sku"
@@ -112,12 +103,13 @@ export default function AddItemModal({ isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} placeholder="SKU code" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
               name="unit"
@@ -125,27 +117,31 @@ export default function AddItemModal({ isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>Unit</FormLabel>
                   <FormControl>
-                    <Input placeholder="pcs, kg, box..." {...field} />
+                    <Input {...field} placeholder="e.g. pcs, kg, liters" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               control={form.control}
-              name="categoryId"
+              name="category_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value ? String(field.value) : ""}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>
+                        <SelectItem key={cat.id} value={String(cat.id)}>
                           {cat.name}
                         </SelectItem>
                       ))}
@@ -155,10 +151,12 @@ export default function AddItemModal({ isOpen, onClose }) {
                 </FormItem>
               )}
             />
-            <div className="flex justify-end">
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Adding..." : "Add Item"}
+
+            <div className="flex justify-end pt-4 space-x-2">
+              <Button variant="outline" onClick={onClose} type="button">
+                Cancel
               </Button>
+              <Button type="submit">Save Changes</Button>
             </div>
           </form>
         </Form>
