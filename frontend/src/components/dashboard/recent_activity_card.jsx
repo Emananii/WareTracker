@@ -4,7 +4,7 @@ import { ArrowRightLeft, ShoppingCart } from "lucide-react";
 
 export function RecentActivityCard() {
   const { data = {}, isLoading } = useQuery({
-    queryKey: ["/dashboard/recent-activity"],
+    queryKey: ["/dashboard/summary"], // ✅ Unified endpoint
   });
 
   const formatTimeAgo = (date) => {
@@ -76,7 +76,9 @@ export function RecentActivityCard() {
                     <p className="font-medium text-gray-800 capitalize">
                       {transfer.transfer_type === "OUT"
                         ? "Transfer Out"
-                        : "Transfer In"}
+                        : transfer.transfer_type === "IN"
+                        ? "Transfer In"
+                        : "Transfer"}
                     </p>
                     <p className="text-sm text-gray-500">
                       {transfer.location?.name || "Unknown Location"}

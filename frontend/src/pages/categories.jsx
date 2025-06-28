@@ -16,7 +16,7 @@ import { BASE_URL } from "@/lib/constants";
 
 import AddCategoryModal from "@/components/categories/add-category-modal";
 import EditCategoryModal from "@/components/categories/edit-category-modal";
-import DeleteCategoryModal from "@/components/categories/delete-category-modal"; 
+import DeleteCategoryModal from "@/components/categories/delete-category-modal";
 
 export default function Categories() {
   const { toast } = useToast();
@@ -31,13 +31,18 @@ export default function Categories() {
     isLoading,
     isError,
     error,
-    refetch, 
+    refetch,
   } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
       const res = await fetch(`${BASE_URL}/categories`);
-      if (!res.ok) throw new Error("Failed to fetch categories");
-      return await res.json();
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch categories: ${text}`);
+      }
+      const json = await res.json();
+      console.log("Fetched categories:", json);
+      return json;
     },
   });
 
@@ -50,15 +55,13 @@ export default function Categories() {
     setIsEditModalOpen(true);
   };
 
-  // Define handleDelete here
   const handleDelete = (category) => {
     setSelectedCategory(category);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!selectedCategory || !selectedCategory.id) {
-      console.error("No category selected for deletion or ID is missing.");
+    if (!selectedCategory?.id) {
       toast({
         title: "Error!",
         description: "No category selected for deletion.",
@@ -67,49 +70,33 @@ export default function Categories() {
       return;
     }
 
-    const categoryIdToDelete = selectedCategory.id;
-    console.log("Attempting to send DELETE request for ID:", categoryIdToDelete);
-
     try {
-      const response = await fetch(`${BASE_URL}/categories/${categoryIdToDelete}`, { // Use BASE_URL
+      const res = await fetch(`${BASE_URL}/categories/${selectedCategory.id}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          // Add any necessary authentication tokens here, e.g., "Authorization": `Bearer ${token}`
-        },
       });
-
-      if (response.ok) {
-        console.log("Category soft-deleted successfully on the backend.");
-        setIsDeleteModalOpen(false); // Close the modal
-        setSelectedCategory(null); // Clear selected category
-        refetch(); // Use refetch to update the categories list
-        toast({
-          title: "Success!",
-          description: "Category soft-deleted successfully.",
-          variant: "default",
-        });
-      } else {
-        const errorData = await response.json();
-        console.error("Failed to soft-delete category:", errorData.error || response.statusText);
-        toast({
-          title: "Error!",
-          description: errorData.error || "Failed to soft-delete category.",
-          variant: "destructive",
-        });
+      const text = await res.text();
+      if (!res.ok) {
+        throw new Error(text);
       }
-    } catch (error) {
-      console.error("Network error during delete operation:", error);
       toast({
-        title: "Error!",
-        description: "Network error during delete operation.",
+        title: "Deleted",
+        description: `Category "${selectedCategory.name}" deleted.`,
+      });
+      setIsDeleteModalOpen(false);
+      setSelectedCategory(null);
+      refetch();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      toast({
+        title: "Error deleting category",
+        description: err.message,
         variant: "destructive",
       });
     }
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>Loading categories...</div>;
   }
 
   if (isError) {
@@ -152,18 +139,10 @@ export default function Categories() {
                   <TableCell>{category.name}</TableCell>
                   <TableCell>{category.description}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(category)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(category)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(category)} // This line (or similar) was causing the error
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(category)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -180,18 +159,27 @@ export default function Categories() {
         </Table>
       </div>
 
-      <AddCategoryModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+      <AddCategoryModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          refetch();
+        }}
+      />
       <EditCategoryModal
         category={selectedCategory}
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedCategory(null);
+          refetch();
+        }}
       />
-
       <DeleteCategoryModal
         category={selectedCategory}
         isOpen={isDeleteModalOpen}
-        onConfirm={handleConfirmDelete} // Pass the function to execute the delete API call
-        onClose={() => { // Changed from 'onCancel' to 'onClose' for consistency, adjust modal prop name if needed
+        onConfirm={handleConfirmDelete}
+        onClose={() => {
           setIsDeleteModalOpen(false);
           setSelectedCategory(null);
         }}
