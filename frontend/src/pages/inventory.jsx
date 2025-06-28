@@ -19,12 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Edit, Trash2, ArrowUpDown, Share2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, ArrowUpDown } from "lucide-react";
 
 import AddItemModal from "@/components/inventory/add-item-modal";
 import EditItemModal from "@/components/inventory/edit-item-modal";
-import AddPurchaseModal from "@/components/purchases/add-purchase-modal";
-import TransferModal from "@/components/inventory/transfer-modal";
 
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,9 +31,6 @@ import { BASE_URL } from "@/lib/constants";
 export default function Inventory() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-
   const [selectedItem, setSelectedItem] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
@@ -44,6 +39,7 @@ export default function Inventory() {
   const [stockFilter, setStockFilter] = useState("all");
   const [sortField, setSortField] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
+
   const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery({
@@ -130,23 +126,9 @@ export default function Inventory() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">Inventory Management</h1>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedItem(null);
-              setIsTransferModalOpen(true);
-            }}
-          >
-            <Share2 className="h-4 w-4 mr-2" /> Transfer Stock
-          </Button>
-          <Button variant="secondary" onClick={() => setIsPurchaseModalOpen(true)}>
-            Record Purchase
-          </Button>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Add Item
-          </Button>
-        </div>
+        <Button onClick={() => setIsAddModalOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" /> Add Item
+        </Button>
       </div>
 
       <Card>
@@ -256,8 +238,6 @@ export default function Inventory() {
 
       <AddItemModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <EditItemModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} item={selectedItem} />
-      <AddPurchaseModal isOpen={isPurchaseModalOpen} onClose={() => setIsPurchaseModalOpen(false)} />
-      <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} item={selectedItem} categories={categories} />
 
       {confirmDeleteId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
