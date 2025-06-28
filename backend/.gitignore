@@ -18,8 +18,5 @@ instance/
 *.sqlite3
 *.db
 
-# Flask-Migrate folder (optional)
-migrations/
-
 # Logs
 *.log
