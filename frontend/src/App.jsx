@@ -3,7 +3,7 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 
-import { Toaster } from "@/components/ui/toaster"; // ✅ Correct toast renderer
+import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import Sidebar from "@/components/layout/sidebar";
@@ -12,10 +12,10 @@ import MobileNav from "@/components/layout/mobile-nav";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
 import Purchases from "@/pages/purchases";
-import StockTransfers from "@/pages/stock-transfers"; // ✅ FIXED: proper component import
+import StockTransfers from "@/pages/stock-transfers";
 import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
-import Categories from "@/pages/categories";  // Import the Categories page
+import Categories from "@/pages/categories";
 import NotFound from "@/pages/not-found";
 import Suppliers from "@/pages/suppliers";
 
@@ -73,7 +73,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/inventory" component={Inventory} />
-      <Route path="/categories" component={Categories} /> {/* Added Categories Route */}
+      <Route path="/categories" component={Categories} />
       <Route path="/purchases" component={Purchases} />
       <Route path="/stock-transfers" component={StockTransfers} />
       <Route path="/businesses" component={Businesses} />
@@ -91,7 +91,7 @@ function App() {
         <Layout>
           <Router />
         </Layout>
-        <Toaster /> {/* ✅ Renders toast notifications */}
+        <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
   );

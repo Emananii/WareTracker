@@ -18,12 +18,21 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { BASE_URL } from "@/lib/constants";
+import * as z from "zod";
+
+// ✅ Zod validation schema
+const formSchema = z.object({
+  name: z.string().min(1, "Category name is required"),
+  description: z.string().min(1, "Description is required"),
+});
 
 export default function AddCategoryModal({ isOpen, onClose }) {
   const { toast } = useToast();
 
   const form = useForm({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -35,7 +44,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
       return apiRequest("POST", `${BASE_URL}/categories`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] }); // ✅ Correct key
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast({
         title: "Success",
         description: "Category added successfully!",
@@ -53,9 +62,8 @@ export default function AddCategoryModal({ isOpen, onClose }) {
   });
 
   const onSubmit = (data) => {
-    if (data.name.trim() && data.description.trim()) {
-      addCategoryMutation.mutate(data);
-    }
+    console.log("Submitting category:", data); // Debug
+    addCategoryMutation.mutate(data);
   };
 
   return (
@@ -69,6 +77,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Name Field */}
             <FormField
               control={form.control}
               name="name"
@@ -82,6 +91,8 @@ export default function AddCategoryModal({ isOpen, onClose }) {
                 </FormItem>
               )}
             />
+
+            {/* Description Field */}
             <FormField
               control={form.control}
               name="description"
@@ -95,6 +106,8 @@ export default function AddCategoryModal({ isOpen, onClose }) {
                 </FormItem>
               )}
             />
+
+            {/* Buttons */}
             <div className="flex space-x-3 pt-4">
               <Button
                 type="button"

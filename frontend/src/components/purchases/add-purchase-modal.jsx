@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 
 import { Trash2 } from "lucide-react";
 
+// ------------------ Validation Schema ------------------
 const formSchema = z.object({
   supplier_id: z.coerce.number().min(1, "Supplier is required"),
   notes: z.string().optional(),
@@ -52,6 +53,7 @@ const formSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
+// ------------------ Component ------------------
 export default function AddPurchaseModal({ isOpen, onClose }) {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
@@ -112,8 +114,8 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
     form.setValue("items", updated);
   };
 
-  const calculateTotal = () => {
-    return items.reduce((sum, item) => {
+  const calculateTotal = (list = []) => {
+    return list.reduce((sum, item) => {
       const q = parseInt(item.quantity) || 0;
       const u = parseFloat(item.unit_cost) || 0;
       return sum + q * u;
@@ -122,33 +124,25 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
 
   const createPurchaseMutation = useMutation({
     mutationFn: async (data) => {
+      if (!data.items || data.items.length === 0) {
+        throw new Error("At least one purchase item is required.");
+      }
+
       const purchase = await apiRequest("POST", `${BASE_URL}/purchases`, {
         supplier_id: data.supplier_id,
-        total_cost: calculateTotal().toFixed(2),
+        total_cost: calculateTotal(data.items).toFixed(2),
         notes: data.notes,
+        items: data.items, // ✅ Now included in the payload
       });
-
-      await Promise.all(
-        items.map((item) =>
-          apiRequest("POST", `${BASE_URL}/purchase_items`, {
-            purchase_id: purchase.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            unit_cost: item.unit_cost,
-          })
-        )
-      );
 
       return purchase;
     },
     onSuccess: () => {
-      console.log("✅ Toast trigger fired"); // for debugging
       toast({
         title: "Purchase recorded",
         description: "The new purchase has been added successfully.",
       });
 
-      // Reset form after slight delay to allow toast to render first
       setTimeout(() => {
         form.reset();
         setItems([]);
@@ -160,7 +154,6 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
       queryClient.invalidateQueries({ queryKey: ["/purchases"] });
     },
     onError: (error) => {
-      console.error("❌ Purchase failed", error);
       toast({
         title: "Something went wrong",
         description: error.message || "Could not create purchase",
@@ -170,7 +163,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
   });
 
   const onSubmit = (data) => {
-    createPurchaseMutation.mutate(data);
+    createPurchaseMutation.mutate({ ...data, items });
   };
 
   const filteredProducts = products.filter((p) =>
@@ -268,7 +261,9 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                         type="number"
                         min="1"
                         value={item.quantity.toString()}
-                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(index, "quantity", parseInt(e.target.value))
+                        }
                       />
                     </div>
                     <div>
@@ -278,7 +273,9 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                         step="0.01"
                         min="0"
                         value={item.unit_cost.toString()}
-                        onChange={(e) => handleItemChange(index, "unit_cost", parseFloat(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(index, "unit_cost", parseFloat(e.target.value))
+                        }
                       />
                     </div>
                     <div>
@@ -301,7 +298,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
               <Input
                 type="text"
                 readOnly
-                value={`KSH ${calculateTotal().toFixed(2)}`}
+                value={`KSH ${calculateTotal(items).toFixed(2)}`}
                 className="bg-gray-100"
               />
             </div>
