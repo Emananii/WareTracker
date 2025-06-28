@@ -4,11 +4,16 @@ import { z } from "zod";
 export const insertBusinessSchema = z.object({
   name: z.string().min(2, "Business name must be at least 2 characters."),
   address: z.string().min(5, "Address must be at least 5 characters."),
+  contact_person: z.string().optional(),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
+  is_active: z.boolean().default(true),
 });
 
 // Category form validation
 export const insertCategorySchema = z.object({
   name: z.string().min(2, "Category name must be at least 2 characters."),
+  description: z.string().optional(),
 });
 
 // Edit Category Schema
@@ -20,51 +25,61 @@ export const editCategorySchema = insertCategorySchema.extend({
 export const insertSupplierSchema = z.object({
   name: z.string().min(2),
   contact: z.string().optional(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
   email: z.string().email("Invalid email").optional(),
   phone: z.string().min(5).optional(),
 });
 
-// Unit form validation
-export const insertUnitSchema = z.object({
-  name: z.string().min(2),
-  abbreviation: z.string().min(1),
-  baseUnit: z.string().optional(),
-  conversionFactor: z.coerce.number().nonnegative().default(1),
-  isBaseUnit: z.boolean().default(false),
-});
-
-// Inventory Item form validation
+// Product form validation
 export const insertInventoryItemSchema = z.object({
   name: z.string().min(2),
   sku: z.string().min(1),
-  quantity: z.coerce.number().nonnegative().default(0),
-  minStock: z.coerce.number().nonnegative().default(0),
-  location: z.string().optional(),
-  categoryId: z.coerce.number().optional(),  // can be required if strict
-  unitId: z.coerce.number().optional(),      // can be required if strict
-  unitCost: z.coerce.number().nonnegative().optional(),
+  unit: z.string().optional(),
+  description: z.string().optional(),
+  category_id: z.coerce.number().min(1),
+  stock_level: z.coerce.number().nonnegative().default(0),
 });
 
 // Purchase form validation
 export const insertPurchaseSchema = z.object({
-  supplierId: z.coerce.number().optional(), // can be required if needed
-  totalCost: z.coerce.number().nonnegative(),
+  supplier_id: z.coerce.number().min(1),
+  total_cost: z.coerce.number().nonnegative(),
   notes: z.string().optional(),
+  purchase_date: z.string().optional(), // ISO string
 });
 
 // Purchase Item form validation
 export const insertPurchaseItemSchema = z.object({
-  purchaseId: z.coerce.number(),
-  inventoryItemId: z.coerce.number(),
-  quantity: z.coerce.number().nonnegative(),
-  unitCost: z.coerce.number().nonnegative(),
+  purchase_id: z.coerce.number().min(1),
+  product_id: z.coerce.number().min(1),
+  quantity: z.coerce.number().int().nonnegative(),
+  unit_cost: z.coerce.number().nonnegative(),
 });
 
-// Movement form validation
-export const insertMovementSchema = z.object({
-  inventoryItemId: z.coerce.number(),
-  businessId: z.coerce.number().optional(),
-  type: z.enum(["out_to_business", "in_from_business", "adjustment"]),
-  quantity: z.coerce.number().nonnegative(),
+// Stock transfer form validation
+export const insertStockTransferSchema = z.object({
+  transfer_type: z.enum(["IN", "OUT"], {
+    required_error: "Transfer type is required",
+    invalid_type_error: "Transfer type must be 'IN' or 'OUT'",
+  }),
+  location_id: z.coerce.number().optional(),
+  date: z.string().optional(),
   notes: z.string().optional(),
+  items: z.array(
+    z.object({
+      product_id: z.coerce.number().min(1),
+      quantity: z.coerce.number().int().nonnegative(),
+    })
+  ).min(1, "At least one product must be included in the transfer"),
+});
+
+// Business Location form validation
+export const insertBusinessLocationSchema = z.object({
+  name: z.string().min(2),
+  address: z.string().optional(),
+  contact_person: z.string().optional(),
+  phone: z.string().optional(),
+  notes: z.string().optional(),
+  is_active: z.boolean().default(true),
 });

@@ -16,7 +16,7 @@ const navigation = [
   { name: "Inventory", href: "/inventory", icon: Package },
   { name: "Categories", href: "/categories", icon: Tag }, // Added Categories
   { name: "Purchases", href: "/purchases", icon: ShoppingCart },
-  { name: "Movements", href: "/movements", icon: Truck },
+  { name: "Stock Transfers", href: "/stock-transfers", icon: Truck },
   { name: "Businesses", href: "/businesses", icon: Warehouse },
   { name: "Suppliers", href: "/suppliers", icon: Factory }, // ✅ Added this line
   { name: "Reports", href: "/reports", icon: BarChart3 },

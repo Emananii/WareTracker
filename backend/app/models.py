@@ -61,6 +61,7 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
+    # New field for tracking current inventory level
     stock_level = db.Column(db.Integer, nullable=False, default=0)
 
     purchase_items = db.relationship(
@@ -168,9 +169,15 @@ class BusinessLocation(db.Model, SerializerMixin):
     phone = db.Column(db.String(50))
     notes = db.Column(db.Text)
 
-    # Status column for activation
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_deleted = db.Column(db.Boolean, default=False)
+
+    # ✅ FIXED RELATIONSHIP: use back_populates instead of backref
+    stock_transfers = db.relationship(
+        "StockTransfer",
+        back_populates="location",  # 👈 no more circular backref
+        cascade="all, delete-orphan"
+    )
 
     # Serialization config
     serialize_rules = ("-stock_transfers.location",)
@@ -192,20 +199,19 @@ class StockTransfer(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # NEW: Defines whether the stock is entering or leaving the warehouse
-    transfer_type = db.Column(db.String(10), nullable=False)  # "IN" or "OUT"
+    transfer_type = db.Column(db.String(10), nullable=False)
 
-    # Optional location for recordkeeping (e.g., which branch it came from or went to)
     location_id = db.Column(
         db.Integer,
         db.ForeignKey("business_locations.id", name="fk_stock_transfers_location_id"),
-        nullable=True  # nullable since not always needed
+        nullable=True
     )
-    location = db.relationship("BusinessLocation", backref="stock_transfers")
+
+    # ✅ FIXED RELATIONSHIP: use back_populates instead of defining backref
+    location = db.relationship("BusinessLocation", back_populates="stock_transfers")
 
     notes = db.Column(db.Text)
-
-    is_deleted = db.Column(db.Boolean, default=False)  # Soft delete flag
+    is_deleted = db.Column(db.Boolean, default=False)
 
     items = db.relationship(
         "StockTransferItem",

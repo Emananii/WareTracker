@@ -11,15 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Edit, Truck } from "lucide-react";
+import { Search, Plus, Edit, Eye, Truck } from "lucide-react";
 import AddSupplierModal from "@/components/suppliers/add-supplier-modal";
 import EditSupplierModal from "@/components/suppliers/edit-supplier-modal";
+import ViewSupplierModal from "@/components/suppliers/view-supplier-modal";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
 
 export default function Suppliers() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
+  const [viewingSupplier, setViewingSupplier] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
 
@@ -29,9 +31,9 @@ export default function Suppliers() {
     isError,
     error,
   } = useQuery({
-    queryKey: [`${BASE_URL}/suppliers`],
+    queryKey: [`${BASE_URL}/suppliers/`],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/suppliers`);
+      const res = await fetch(`${BASE_URL}/suppliers/`);
       if (!res.ok) throw new Error("Failed to fetch suppliers");
       return res.json();
     },
@@ -104,7 +106,8 @@ export default function Suppliers() {
           filteredSuppliers.map((supplier) => (
             <Card
               key={supplier.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setViewingSupplier(supplier)}
             >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -117,13 +120,28 @@ export default function Suppliers() {
                       <p className="text-sm text-gray-500">Supplier #{supplier.id}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingSupplier(supplier)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingSupplier(supplier);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingSupplier(supplier);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div>
@@ -182,19 +200,38 @@ export default function Suppliers() {
             <TableBody>
               {filteredSuppliers.length > 0 ? (
                 filteredSuppliers.map((supplier) => (
-                  <TableRow key={supplier.id} className="hover:bg-gray-50">
+                  <TableRow
+                    key={supplier.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => setViewingSupplier(supplier)}
+                  >
                     <TableCell className="font-medium">#{supplier.id}</TableCell>
                     <TableCell>{supplier.name}</TableCell>
                     <TableCell>{supplier.contact || "N/A"}</TableCell>
                     <TableCell>{supplier.address || "N/A"}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingSupplier(supplier)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingSupplier(supplier);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSupplier(supplier);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -215,11 +252,21 @@ export default function Suppliers() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+
       {editingSupplier && (
         <EditSupplierModal
           supplier={editingSupplier}
           isOpen={true}
           onClose={() => setEditingSupplier(null)}
+        />
+      )}
+
+      {viewingSupplier && (
+        <ViewSupplierModal
+          isOpen={!!viewingSupplier}
+          onClose={() => setViewingSupplier(null)}
+          supplier={viewingSupplier}
+          onPrint={() => window.print()} // Temporary print handler
         />
       )}
     </div>

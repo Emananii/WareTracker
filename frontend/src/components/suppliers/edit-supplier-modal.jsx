@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import { X } from "lucide-react";
 import { insertSupplierSchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 const editSchema = insertSupplierSchema;
 
@@ -30,22 +32,36 @@ export default function EditSupplierModal({ supplier, isOpen, onClose }) {
   const form = useForm({
     resolver: zodResolver(editSchema),
     defaultValues: {
-      name: supplier?.name || "",
-      contact: supplier?.contact || "",
-      address: supplier?.address || "",
+      name: "",
+      contact: "",
+      address: "",
     },
   });
 
+  
+  useEffect(() => {
+    if (supplier) {
+      form.reset({
+        name: supplier.name || "",
+        contact: supplier.contact || "",
+        address: supplier.address || "",
+      });
+    }
+  }, [supplier, form]);
+
   const updateSupplierMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("PUT", `/api/suppliers/${supplier.id}`, data);
+      return apiRequest("PUT", `${BASE_URL}/suppliers/${supplier.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/suppliers`] });
       toast({
         title: "Success",
         description: "Supplier updated successfully",
       });
+      setTimeout(() => {
+    window.location.href = "/suppliers";// Redirect to suppliers list after update
+  }, 1200);
       onClose();
     },
     onError: (error) => {

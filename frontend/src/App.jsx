@@ -3,7 +3,7 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 
-import { ToastProvider, ToastViewport } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/toaster"; // ✅ Correct toast renderer
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import Sidebar from "@/components/layout/sidebar";
@@ -12,13 +12,12 @@ import MobileNav from "@/components/layout/mobile-nav";
 import Dashboard from "@/pages/dashboard";
 import Inventory from "@/pages/inventory";
 import Purchases from "@/pages/purchases";
-import Movements from "@/pages/movements";
+import StockTransfers from "@/pages/stock-transfers"; // ✅ FIXED: proper component import
 import Businesses from "@/pages/businesses";
 import Reports from "@/pages/reports";
 import Categories from "@/pages/categories";  // Import the Categories page
 import NotFound from "@/pages/not-found";
 import Suppliers from "@/pages/suppliers";
-
 
 import { Menu, Bell, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -76,7 +75,7 @@ function Router() {
       <Route path="/inventory" component={Inventory} />
       <Route path="/categories" component={Categories} /> {/* Added Categories Route */}
       <Route path="/purchases" component={Purchases} />
-      <Route path="/movements" component={Movements} />
+      <Route path="/stock-transfers" component={StockTransfers} />
       <Route path="/businesses" component={Businesses} />
       <Route path="/suppliers" component={Suppliers} />
       <Route path="/reports" component={Reports} />
@@ -89,12 +88,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ToastProvider>
-          <Layout>
-            <Router />
-          </Layout>
-          <ToastViewport />
-        </ToastProvider>
+        <Layout>
+          <Router />
+        </Layout>
+        <Toaster /> {/* ✅ Renders toast notifications */}
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -21,6 +21,7 @@ import { X } from "lucide-react";
 import { insertBusinessSchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 const editSchema = insertBusinessSchema;
 
@@ -32,19 +33,29 @@ export default function EditBusinessModal({ business, isOpen, onClose }) {
     defaultValues: {
       name: business?.name || "",
       address: business?.address || "",
+      contact_person: business?.contact_person || "",
+      phone: business?.phone || "",
+      notes: business?.notes || "",
     },
   });
 
   const updateBusinessMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("PUT", `/api/businesses/${business.id}`, data);
+      return apiRequest(
+        "PUT",
+        `${BASE_URL}/business_locations/${business.id}`,
+        data
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/businesses"] });
+      queryClient.invalidateQueries({ queryKey: ["business_locations"] });
       toast({
         title: "Success",
         description: "Business updated successfully",
       });
+       setTimeout(() => {
+    window.location.href = "/businesses"; 
+      }, 1200);
       onClose();
     },
     onError: (error) => {
@@ -97,11 +108,49 @@ export default function EditBusinessModal({ business, isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>Address</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter business address"
-                      {...field}
-                      value={field.value || ""}
-                    />
+                    <Input placeholder="Enter address" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contact_person"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact Person</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter contact person" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter phone number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Additional notes (optional)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

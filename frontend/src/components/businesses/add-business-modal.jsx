@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { BASE_URL } from "@/lib/constants";
 
 export default function AddBusinessModal({ isOpen, onClose }) {
   const { toast } = useToast();
@@ -30,15 +31,31 @@ export default function AddBusinessModal({ isOpen, onClose }) {
     defaultValues: {
       name: "",
       address: "",
+      contact_person: "",
+      phone: "",
+      notes: "",
     },
   });
 
   const createBusinessMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("POST", "/api/businesses", data);
+      const response = await fetch(`${BASE_URL}/business_locations`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add business location.");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/businesses"] });
+      queryClient.invalidateQueries({ queryKey: ["business_locations"] });
       toast({
         title: "Success",
         description: "Business added successfully",
@@ -67,9 +84,6 @@ export default function AddBusinessModal({ isOpen, onClose }) {
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Add New Business
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 
@@ -96,11 +110,49 @@ export default function AddBusinessModal({ isOpen, onClose }) {
                 <FormItem>
                   <FormLabel>Address</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter business address"
-                      {...field}
-                      value={field.value || ""}
-                    />
+                    <Input placeholder="Enter address" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="contact_person"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact Person</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter contact person" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter phone number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Additional notes (optional)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,9 +173,7 @@ export default function AddBusinessModal({ isOpen, onClose }) {
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
                 disabled={createBusinessMutation.isPending}
               >
-                {createBusinessMutation.isPending
-                  ? "Adding..."
-                  : "Add Business"}
+                {createBusinessMutation.isPending ? "Adding..." : "Add Business"}
               </Button>
             </div>
           </form>

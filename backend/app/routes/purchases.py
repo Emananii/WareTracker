@@ -11,52 +11,48 @@ def get_purchases():
     purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
     return jsonify([p.to_dict() for p in purchases]), 200
 
+
 @purchases_bp.route("/<int:id>", methods=["GET"])
 def get_single_purchase(id):
     purchase = Purchase.query.get(id)
     if not purchase:
         return jsonify({"error": "Purchase not found"}), 404
-
     return jsonify(purchase.to_dict()), 200
 
 
 @purchases_bp.route("", methods=["POST"])
 def create_purchase():
     data = request.get_json()
-
     try:
+        supplier_id = data["supplier_id"]
+        total_cost = float(data["total_cost"])
+        notes = data.get("notes", "")
         items = data.get("items", [])
-        if not items or not isinstance(items, list):
+
+        if not items:
             return jsonify({"error": "At least one purchase item is required."}), 400
 
-        
         new_purchase = Purchase(
-            supplier_id=data.get("supplier_id"),
-            notes=data.get("notes"),
-            purchase_date=datetime.utcnow(),
+            supplier_id=supplier_id,
+            total_cost=total_cost,
+            notes=notes,
+            purchase_date=datetime.utcnow()
         )
         db.session.add(new_purchase)
-        db.session.flush()  
+        db.session.flush()  # Needed to get new_purchase.id
 
-        total_cost = 0.0
-
-        for item in items:
-            product_id = item.get("product_id")
-            quantity = item.get("quantity", 0)
-            unit_cost = item.get("unit_cost", 0.0)
-
-            if not product_id or quantity <= 0:
-                continue  
+        for item_data in items:
+            product_id = item_data["product_id"]
+            quantity = int(item_data["quantity"])
+            unit_cost = float(item_data["unit_cost"])
 
             product = Product.query.get(product_id)
             if not product:
                 db.session.rollback()
-                return jsonify({"error": f"Product ID {product_id} not found."}), 404
+                return jsonify({"error": f"Product with ID {product_id} not found."}), 404
 
-           
-            product.stock_level = (product.stock_level or 0) + quantity
+            product.stock_level += quantity
 
-            
             purchase_item = PurchaseItem(
                 purchase_id=new_purchase.id,
                 product_id=product_id,
@@ -65,14 +61,11 @@ def create_purchase():
             )
             db.session.add(purchase_item)
 
-            total_cost += quantity * unit_cost
-
-        new_purchase.total_cost = total_cost
         db.session.commit()
 
         return jsonify(new_purchase.to_dict()), 201
 
-    except (KeyError, SQLAlchemyError) as e:
+    except (KeyError, SQLAlchemyError, ValueError) as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
@@ -96,6 +89,9 @@ def update_purchase(id):
         if "notes" in data:
             purchase.notes = data["notes"]
 
+        # NOTE: We are not supporting editing items directly here because
+        # it would require re-calculating stock_level deltas. Handle that via a separate route if needed.
+
         db.session.commit()
         return jsonify(purchase.to_dict()), 200
 
@@ -103,14 +99,29 @@ def update_purchase(id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
+
 @purchases_bp.route("/<int:id>", methods=["DELETE"])
 def delete_purchase(id):
     purchase = Purchase.query.get_or_404(id)
 
     try:
+        # Reverse all product stock changes
+        for item in purchase.items:
+            product = Product.query.get(item.product_id)
+            if not product:
+                continue
+
+            if product.stock_level < item.quantity:
+                return jsonify({
+                    "error": f"Cannot delete purchase. Product '{product.name}' has insufficient stock to reverse this purchase."
+                }), 400
+
+            product.stock_level -= item.quantity
+
         db.session.delete(purchase)
         db.session.commit()
-        return jsonify({"message": "Purchase deleted successfully."}), 200
+        return jsonify({"message": "Purchase deleted and stock levels reverted."}), 200
+
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400

@@ -38,30 +38,34 @@ import { Button } from "@/components/ui/button";
 
 import { Trash2 } from "lucide-react";
 
+// --- Zod Schema ---
 const formSchema = z.object({
-  supplier_id: z.coerce.number().min(1, "Supplier is required"),
+  transfer_type: z.enum(["IN", "OUT"], {
+    required_error: "Transfer type is required",
+    invalid_type_error: "Transfer type must be 'IN' or 'OUT'",
+  }),
+  location_id: z.coerce.number().min(1, "Location is required"),
   notes: z.string().optional(),
   items: z
     .array(
       z.object({
         product_id: z.coerce.number().min(1, "Item is required"),
         quantity: z.coerce.number().min(1, "Minimum quantity is 1"),
-        unit_cost: z.coerce.number().min(0, "Unit cost required"),
       })
     )
     .min(1, "At least one item is required"),
 });
 
-export default function AddPurchaseModal({ isOpen, onClose }) {
+export default function AddStockTransferModal({ isOpen, onClose }) {
   const { toast } = useToast();
   const [items, setItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: suppliers = [] } = useQuery({
-    queryKey: ["suppliers"],
+  const { data: locations = [] } = useQuery({
+    queryKey: ["business_locations"],
     queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/suppliers`);
-      if (!res.ok) throw new Error("Failed to fetch suppliers");
+      const res = await fetch(`${BASE_URL}/business_locations`);
+      if (!res.ok) throw new Error("Failed to fetch locations");
       return res.json();
     },
   });
@@ -78,7 +82,8 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      supplier_id: undefined,
+      transfer_type: "IN",
+      location_id: undefined,
       notes: "",
       items: [],
     },
@@ -90,7 +95,6 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
       {
         product_id: product.id,
         quantity: 1,
-        unit_cost: parseFloat(product.unit_cost ?? "0"),
       },
     ];
     setItems(updated);
@@ -112,43 +116,23 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
     form.setValue("items", updated);
   };
 
-  const calculateTotal = () => {
-    return items.reduce((sum, item) => {
-      const q = parseInt(item.quantity) || 0;
-      const u = parseFloat(item.unit_cost) || 0;
-      return sum + q * u;
-    }, 0);
-  };
-
-  const createPurchaseMutation = useMutation({
+  const createTransferMutation = useMutation({
     mutationFn: async (data) => {
-      const purchase = await apiRequest("POST", `${BASE_URL}/purchases`, {
-        supplier_id: data.supplier_id,
-        total_cost: calculateTotal().toFixed(2),
+      const transfer = await apiRequest("POST", `${BASE_URL}/stock_transfers`, {
+        transfer_type: data.transfer_type,
+        location_id: data.location_id,
         notes: data.notes,
+        date: new Date().toISOString(),
+        items: data.items,
       });
-
-      await Promise.all(
-        items.map((item) =>
-          apiRequest("POST", `${BASE_URL}/purchase_items`, {
-            purchase_id: purchase.id,
-            product_id: item.product_id,
-            quantity: item.quantity,
-            unit_cost: item.unit_cost,
-          })
-        )
-      );
-
-      return purchase;
+      return transfer;
     },
     onSuccess: () => {
-      console.log("✅ Toast trigger fired"); // for debugging
       toast({
-        title: "Purchase recorded",
-        description: "The new purchase has been added successfully.",
+        title: "Transfer created",
+        description: "The stock transfer has been added successfully.",
       });
 
-      // Reset form after slight delay to allow toast to render first
       setTimeout(() => {
         form.reset();
         setItems([]);
@@ -157,20 +141,19 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
         window.location.reload();
       }, 1500);
 
-      queryClient.invalidateQueries({ queryKey: ["/purchases"] });
+      queryClient.invalidateQueries({ queryKey: ["stock_transfers"] });
     },
     onError: (error) => {
-      console.error("❌ Purchase failed", error);
       toast({
         title: "Something went wrong",
-        description: error.message || "Could not create purchase",
+        description: error.message || "Could not create transfer",
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data) => {
-    createPurchaseMutation.mutate(data);
+    createTransferMutation.mutate(data);
   };
 
   const filteredProducts = products.filter((p) =>
@@ -182,32 +165,58 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-800">
-            Add New Purchase
+            Create Stock Transfer
           </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Supplier Select */}
+            {/* Transfer Type */}
             <FormField
               control={form.control}
-              name="supplier_id"
+              name="transfer_type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Supplier</FormLabel>
+                  <FormLabel>Transfer Type</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="IN">IN (Stock In)</SelectItem>
+                      <SelectItem value="OUT">OUT (Stock Out)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Location Select */}
+            <FormField
+              control={form.control}
+              name="location_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
                   <Select
                     value={(field.value ?? "").toString()}
                     onValueChange={(value) => field.onChange(parseInt(value))}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select supplier" />
+                        <SelectValue placeholder="Select location" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id.toString()}>
-                          {supplier.name}
+                      {locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id.toString()}>
+                          {location.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -217,7 +226,7 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
               )}
             />
 
-            {/* Product Search and Add */}
+            {/* Product Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Search Products
@@ -250,13 +259,11 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
             <div className="space-y-4">
               <h4 className="text-md font-semibold text-gray-700">Selected Items</h4>
               {items.map((item, index) => {
-                const subtotal = (item.quantity * item.unit_cost).toFixed(2);
                 const product = products.find((p) => p.id === item.product_id);
-
                 return (
                   <div
                     key={index}
-                    className="grid grid-cols-1 md:grid-cols-6 items-center gap-4 p-4 border rounded-lg shadow-sm"
+                    className="grid grid-cols-1 md:grid-cols-5 items-center gap-4 p-4 border rounded-lg shadow-sm"
                   >
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700">Product</label>
@@ -268,22 +275,10 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                         type="number"
                         min="1"
                         value={item.quantity.toString()}
-                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value))}
+                        onChange={(e) =>
+                          handleItemChange(index, "quantity", parseInt(e.target.value))
+                        }
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Unit Cost</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.unit_cost.toString()}
-                        onChange={(e) => handleItemChange(index, "unit_cost", parseFloat(e.target.value))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Subtotal</label>
-                      <Input readOnly value={`KSH ${subtotal}`} className="bg-gray-100" />
                     </div>
                     <div className="flex justify-end">
                       <Button type="button" variant="ghost" onClick={() => removeItem(index)}>
@@ -293,17 +288,6 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
                   </div>
                 );
               })}
-            </div>
-
-            {/* Total Cost */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Total Cost</label>
-              <Input
-                type="text"
-                readOnly
-                value={`KSH ${calculateTotal().toFixed(2)}`}
-                className="bg-gray-100"
-              />
             </div>
 
             {/* Notes */}
@@ -329,9 +313,9 @@ export default function AddPurchaseModal({ isOpen, onClose }) {
               <Button
                 type="submit"
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={createPurchaseMutation.isPending}
+                disabled={createTransferMutation.isPending}
               >
-                {createPurchaseMutation.isPending ? "Adding..." : "Add Purchase"}
+                {createTransferMutation.isPending ? "Creating..." : "Create Transfer"}
               </Button>
             </div>
           </form>

@@ -3,11 +3,15 @@ from ..models import db, BusinessLocation
 
 business_location_bp = Blueprint("business_location_bp", __name__)
 
+
+# GET all active business locations
 @business_location_bp.route("/business_locations", methods=["GET"])
 def get_business_locations():
-    locations = BusinessLocation.query.all()
+    locations = BusinessLocation.query.filter_by(is_deleted=False).all()
     return jsonify([location.to_dict() for location in locations]), 200
 
+
+# GET a specific business location (active or not)
 @business_location_bp.route("/business_locations/<int:id>", methods=["GET"])
 def get_business_location(id):
     location = BusinessLocation.query.get(id)
@@ -15,6 +19,8 @@ def get_business_location(id):
         return jsonify({"error": "Business location not found"}), 404
     return jsonify(location.to_dict()), 200
 
+
+# CREATE a new business location
 @business_location_bp.route("/business_locations", methods=["POST"])
 def create_business_location():
     data = request.get_json()
@@ -25,7 +31,6 @@ def create_business_location():
         phone = data.get("phone")
         notes = data.get("notes")
 
-        # We must check for duplicate name before we post
         if BusinessLocation.query.filter_by(name=name).first():
             return jsonify({"error": "A business location with this name already exists"}), 400
 
@@ -34,7 +39,8 @@ def create_business_location():
             address=address,
             contact_person=contact_person,
             phone=phone,
-            notes=notes
+            notes=notes,
+            is_active=True
         )
         db.session.add(location)
         db.session.commit()
@@ -43,6 +49,8 @@ def create_business_location():
     except KeyError as e:
         return jsonify({"error": f"Missing required field: {str(e)}"}), 400
 
+
+# UPDATE business location details
 @business_location_bp.route("/business_locations/<int:id>", methods=["PUT"])
 def update_business_location(id):
     location = BusinessLocation.query.get(id)
@@ -58,15 +66,34 @@ def update_business_location(id):
     db.session.commit()
     return jsonify(location.to_dict()), 200
 
-@business_location_bp.route("/business_locations/<int:id>", methods=["DELETE"])
-def delete_business_location(id):
+
+# TOGGLE is_active status
+@business_location_bp.route("/business_locations/<int:id>/toggle_active", methods=["PATCH"])
+def toggle_business_location_active(id):
     location = BusinessLocation.query.get(id)
     if not location:
         return jsonify({"error": "Business location not found"}), 404
 
-    if location.stock_transfers and len(location.stock_transfers) > 0:
-        return jsonify({"error": "Cannot delete location with existing stock transfers"}), 400
-
-    db.session.delete(location)
+    location.is_active = not location.is_active
     db.session.commit()
-    return jsonify({"message": f"Business location #{id} deleted"}), 200
+    status = "activated" if location.is_active else "deactivated"
+    return jsonify({
+        "message": f"Business location #{id} has been {status}.",
+        "is_active": location.is_active,
+        "location": location.to_dict()
+    }), 200
+
+
+# DELETE a business location
+@business_location_bp.route("/business_locations/<int:id>/delete", methods=["PATCH"])
+def soft_delete_business_location(id):
+    location = BusinessLocation.query.get(id)
+    if not location:
+        return jsonify({"error": "Business location not found"}), 404
+
+    location.is_deleted = True
+    db.session.commit()
+    return jsonify({
+        "message": f"Business location #{id} has been deleted.",
+        "is_deleted": location.is_deleted
+    }), 200

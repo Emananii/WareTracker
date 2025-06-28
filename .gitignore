@@ -1,0 +1,22 @@
+# Ignore all node_modules folders
+node_modules/
+**/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS system files
+.DS_Store
+
+# Environments
+.env
+.env.*
+
+# SQLite
+*.sqlite3
+*.db
+
+# Venvs
+venv/
+**/venv/

@@ -1,91 +1,101 @@
 from flask import Blueprint, request, jsonify
-from ..models import db, StockTransfer, BusinessLocation, Product, StockTransferItem
-from sqlalchemy.exc import SQLAlchemyError
+from ..models import db, StockTransfer, StockTransferItem, BusinessLocation, Product
 from datetime import datetime
 
 stock_transfer_bp = Blueprint("stock_transfer_bp", __name__, url_prefix="/stock_transfers")
 
 
-@stock_transfer_bp.route("/", methods=["GET"])
+# -------------------- GET All Transfers --------------------
+@stock_transfer_bp.route("/stock_transfers", methods=["GET"])
 def get_stock_transfers():
-    transfers = StockTransfer.query.order_by(StockTransfer.date.desc()).all()
-    return jsonify([t.to_dict() for t in transfers]), 200
+    transfers = StockTransfer.query.filter_by(is_deleted=False).all()
+    return jsonify([transfer.to_dict() for transfer in transfers]), 200
 
 
-@stock_transfer_bp.route("/<int:id>", methods=["GET"])
+# -------------------- GET Single Transfer --------------------
+@stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["GET"])
 def get_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
-    if not transfer:
+    if not transfer or transfer.is_deleted:
         return jsonify({"error": "Stock transfer not found"}), 404
     return jsonify(transfer.to_dict()), 200
 
 
-@stock_transfer_bp.route("/", methods=["POST"])
+# -------------------- POST Create Transfer --------------------
+@stock_transfer_bp.route("/stock_transfers", methods=["POST"])
 def create_stock_transfer():
     data = request.get_json()
 
     try:
-        location_id = data["location_id"]
+        transfer_type = data["transfer_type"]
+        location_id = data.get("location_id")
         notes = data.get("notes", "")
-        items = data.get("items", [])
-        date = datetime.utcnow()
+        items = data["items"]
+        date = data.get("date")
 
-        if not items or not isinstance(items, list):
-            return jsonify({"error": "At least one item is required"}), 400
+        if transfer_type not in ("IN", "OUT"):
+            return jsonify({"error": "transfer_type must be 'IN' or 'OUT'"}), 400
 
-        location = BusinessLocation.query.get(location_id)
-        if not location:
-            return jsonify({"error": "Invalid location_id"}), 400
+        if location_id:
+            location = BusinessLocation.query.get(location_id)
+            if not location:
+                return jsonify({"error": "Invalid location_id"}), 400
 
-        new_transfer = StockTransfer(
+        transfer = StockTransfer(
+            transfer_type=transfer_type,
             location_id=location_id,
             notes=notes,
-            date=date
+            date=datetime.fromisoformat(date) if date else datetime.utcnow()
         )
-        db.session.add(new_transfer)
-        db.session.flush()  # get transfer ID
+        db.session.add(transfer)
+        db.session.flush()  # Ensure we can access transfer.id
 
         for item in items:
             product_id = item.get("product_id")
             quantity = item.get("quantity")
 
-            if not product_id or quantity is None or quantity <= 0:
-                continue
+            if product_id is None or quantity is None:
+                return jsonify({"error": "Each item must have product_id and quantity"}), 400
 
             product = Product.query.get(product_id)
             if not product:
-                db.session.rollback()
                 return jsonify({"error": f"Product ID {product_id} not found"}), 404
 
-            if product.stock_level < quantity:
-                db.session.rollback()
-                return jsonify({"error": f"Not enough stock for product '{product.name}'"}), 400
+            if quantity < 0:
+                return jsonify({"error": f"Invalid quantity for product {product.name}"}), 400
 
-            # Subtract quantity from stock
-            product.stock_level -= quantity
+            # ✅ Fix: Adjust using stock_level
+            if transfer_type == "IN":
+                product.stock_level += quantity
+            else:
+                if product.stock_level < quantity:
+                    return jsonify({
+                        "error": f"Not enough stock for product {product.name}. Available: {product.stock_level}, Needed: {quantity}"
+                    }), 400
+                product.stock_level -= quantity
 
             transfer_item = StockTransferItem(
-                transfer_id=new_transfer.id,
+                stock_transfer_id=transfer.id,
                 product_id=product_id,
                 quantity=quantity
             )
             db.session.add(transfer_item)
 
         db.session.commit()
-        return jsonify(new_transfer.to_dict()), 201
+        return jsonify(transfer.to_dict()), 201
 
     except KeyError as e:
-        db.session.rollback()
-        return jsonify({"error": f"Missing field: {str(e)}"}), 400
-    except SQLAlchemyError as e:
+        return jsonify({"error": f"Missing required field: {str(e)}"}), 400
+    except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-@stock_transfer_bp.route("/<int:id>", methods=["PUT"])
+# -------------------- PUT Update Transfer (metadata only) --------------------
+@stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["PUT"])
 def update_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
-    if not transfer:
+    if not transfer or transfer.is_deleted:
         return jsonify({"error": "Stock transfer not found"}), 404
 
     data = request.get_json()
@@ -103,17 +113,34 @@ def update_stock_transfer(id):
     return jsonify(transfer.to_dict()), 200
 
 
-@stock_transfer_bp.route("/<int:id>", methods=["DELETE"])
+# -------------------- DELETE Soft Delete with Reversal --------------------
+@stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["DELETE"])
 def delete_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
-    if not transfer:
-        return jsonify({"error": "Stock transfer not found"}), 404
+    if not transfer or transfer.is_deleted:
+        return jsonify({"error": "Stock transfer not found or already deleted"}), 404
 
     try:
-        db.session.delete(transfer)
-        db.session.commit()
-        return jsonify({"message": f"Stock transfer #{id} deleted"}), 200
-    except SQLAlchemyError as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 400
+        for item in transfer.items:
+            product = Product.query.get(item.product_id)
+            if not product:
+                continue  # silently skip
 
+            if transfer.transfer_type == "IN":
+                # ✅ Remove stock that was added (reverse IN)
+                if product.stock_level < item.quantity:
+                    return jsonify({
+                        "error": f"Cannot delete: insufficient stock to reverse IN transfer for product {product.name}"
+                    }), 400
+                product.stock_level -= item.quantity
+            elif transfer.transfer_type == "OUT":
+                # ✅ Add back stock that was removed (reverse OUT)
+                product.stock_level += item.quantity
+
+        transfer.is_deleted = True
+        db.session.commit()
+        return jsonify({"message": f"Stock transfer #{id} marked as deleted and reversed"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
