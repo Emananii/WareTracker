@@ -98,9 +98,6 @@ export default function AddItemModal({ isOpen, onClose }) {
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Add New Item
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 
