@@ -1,33 +1,41 @@
-import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { X } from "lucide-react";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
-import { BASE_URL } from "@/lib/constants"; // Import BASE_URL
+import { BASE_URL } from "@/lib/constants";
 
-// AddCategoryModal.jsx
 export default function AddCategoryModal({ isOpen, onClose }) {
   const { toast } = useToast();
 
   const form = useForm({
     defaultValues: {
       name: "",
-      description: "", // Added description field
+      description: "",
     },
   });
 
   const addCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      // Ensure the backend accepts description and base URL is used
       return apiRequest("POST", `${BASE_URL}/categories`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`{BASE_URL}categories`] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] }); // ✅ Correct key
       toast({
         title: "Success",
         description: "Category added successfully!",
@@ -46,7 +54,7 @@ export default function AddCategoryModal({ isOpen, onClose }) {
 
   const onSubmit = (data) => {
     if (data.name.trim() && data.description.trim()) {
-      addCategoryMutation.mutate(data); // Ensure both name and description are sent
+      addCategoryMutation.mutate(data);
     }
   };
 
@@ -54,16 +62,13 @@ export default function AddCategoryModal({ isOpen, onClose }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold text-gray-800">
-              Add New Category
-            </DialogTitle>          
-          </div>
+          <DialogTitle className="text-lg font-semibold text-gray-800">
+            Add New Category
+          </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Category Name */}
             <FormField
               control={form.control}
               name="name"
@@ -77,8 +82,6 @@ export default function AddCategoryModal({ isOpen, onClose }) {
                 </FormItem>
               )}
             />
-
-            {/* Category Description */}
             <FormField
               control={form.control}
               name="description"
@@ -92,7 +95,6 @@ export default function AddCategoryModal({ isOpen, onClose }) {
                 </FormItem>
               )}
             />
-
             <div className="flex space-x-3 pt-4">
               <Button
                 type="button"

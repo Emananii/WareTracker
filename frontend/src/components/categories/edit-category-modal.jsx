@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -17,11 +16,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 import { editCategorySchema } from "@/shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { BASE_URL } from "@/lib/constants";
+import { useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 
 export default function EditCategoryModal({ isOpen, onClose, category }) {
   const { toast } = useToast();
@@ -29,29 +29,40 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
   const form = useForm({
     resolver: zodResolver(editCategorySchema),
     defaultValues: {
-      name: category?.name || "",
-      description: category?.description || "",
+      name: "",
+      description: "",
     },
   });
 
+  
+  useEffect(() => {
+    if (category) {
+      form.reset({
+        name: category.name || "",
+        description: category.description || "",
+      });
+    }
+  }, [category, form]);
+
   const editCategoryMutation = useMutation({
     mutationFn: async (data) => {
-      return apiRequest("PUT", `${BASE_URL}categories/${category.id}`, data);
+      return await apiRequest("PUT", `${BASE_URL}/categories/${category.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${BASE_URL}/categories`] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] }); 
       toast({
-        title: "Success",
-        description: "Category updated successfully!",
+        title: "Success!",
+        description: "Category updated successfully.",
+        duration: 3000,
       });
-      form.reset();
       onClose();
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: "Update failed",
         description: error.message || "Something went wrong",
         variant: "destructive",
+        duration: 4000,
       });
     },
   });
@@ -66,11 +77,7 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-semibold text-gray-800">
-              Edit Category
-            </DialogTitle>
-          </div>
+          <DialogTitle>Edit Category</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -96,10 +103,7 @@ export default function EditCategoryModal({ isOpen, onClose, category }) {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Enter category description"
-                      {...field}
-                    />
+                    <Input placeholder="Enter description" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

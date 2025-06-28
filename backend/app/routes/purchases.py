@@ -29,14 +29,14 @@ def create_purchase():
         if not items or not isinstance(items, list):
             return jsonify({"error": "At least one purchase item is required."}), 400
 
-        # Create the Purchase record
+        
         new_purchase = Purchase(
-            supplier_id=data["supplier_id"],
+            supplier_id=data.get("supplier_id"),
             notes=data.get("notes"),
             purchase_date=datetime.utcnow(),
         )
         db.session.add(new_purchase)
-        db.session.flush()  # to get the new purchase.id
+        db.session.flush()  
 
         total_cost = 0.0
 
@@ -46,9 +46,17 @@ def create_purchase():
             unit_cost = item.get("unit_cost", 0.0)
 
             if not product_id or quantity <= 0:
-                continue  # skip invalid items
+                continue  
 
-            # Create PurchaseItem
+            product = Product.query.get(product_id)
+            if not product:
+                db.session.rollback()
+                return jsonify({"error": f"Product ID {product_id} not found."}), 404
+
+           
+            product.stock_level = (product.stock_level or 0) + quantity
+
+            
             purchase_item = PurchaseItem(
                 purchase_id=new_purchase.id,
                 product_id=product_id,
@@ -56,11 +64,6 @@ def create_purchase():
                 unit_cost=unit_cost
             )
             db.session.add(purchase_item)
-
-            # Update product stock level
-            product = Product.query.get(product_id)
-            if product:
-                product.stock_level += quantity
 
             total_cost += quantity * unit_cost
 
@@ -72,6 +75,7 @@ def create_purchase():
     except (KeyError, SQLAlchemyError) as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+
 
 
 @purchases_bp.route("/<int:id>", methods=["PUT"])

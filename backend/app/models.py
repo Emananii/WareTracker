@@ -61,7 +61,6 @@ class Product(db.Model, SerializerMixin):
         nullable=False
     )
 
-    # New field for tracking current inventory level
     stock_level = db.Column(db.Integer, nullable=False, default=0)
 
     purchase_items = db.relationship(
