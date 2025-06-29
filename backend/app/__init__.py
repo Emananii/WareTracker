@@ -46,11 +46,11 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
 
-    CORS(app, resources={r"/*": {"origins": [
+    CORS(app, origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://waretracker.netlify.app"
-    ]}})
+    ])
 
     
     app.register_blueprint(suppliers_bp)
