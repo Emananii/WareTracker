@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: waretracker-backend
+    env: python
+    plan: free
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt
+      flask db upgrade
+    startCommand: gunicorn -w 4 'app:create_app()'
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///warehouse.db
