@@ -165,7 +165,6 @@ def create_purchase():
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
-
 @purchases_bp.route("/<int:id>", methods=["PUT"])
 @swag_from({
     'tags': ['Purchases'],
@@ -212,7 +211,14 @@ def update_purchase(id):
     if not purchase:
         return jsonify({"error": "Purchase not found or already deleted."}), 404
 
-    if datetime.now(EAT) - purchase.purchase_date > timedelta(days=30):
+    # ---- 🔥 Patch: Handle naive vs aware datetime ----
+    purchase_dt = purchase.purchase_date
+    if purchase_dt.tzinfo is None:
+        # Manually make it timezone-aware using EAT
+        purchase_dt = purchase_dt.replace(tzinfo=EAT)
+
+    # Now it's safe to compare
+    if datetime.now(EAT) - purchase_dt > timedelta(days=30):
         return jsonify({"error": "Cannot edit a purchase older than 30 days."}), 403
 
     data = request.get_json()
