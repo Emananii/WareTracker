@@ -13,10 +13,13 @@ from .routes.stock_transfer_items import stock_transfer_item_bp
 from .routes.business_locations import business_location_bp
 from .routes.dashboard import dashboard_bp
 
+from flasgger import Swagger
+
 migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
+    swagger = Swagger(app)
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///warehouse.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -39,6 +42,9 @@ def create_app():
 
     @app.route("/")
     def index():
-        return {"message": "Warehouse Tracker API is running."}
+        return {
+            "message": "Warehouse Tracker API is running.",
+            "docs": "/apidocs" 
+            }
 
     return app

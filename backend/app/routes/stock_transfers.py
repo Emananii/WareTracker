@@ -2,12 +2,35 @@ from flask import Blueprint, request, jsonify
 from ..models import db, StockTransfer, StockTransferItem, BusinessLocation, Product
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from flasgger import swag_from
 
 stock_transfer_bp = Blueprint("stock_transfer_bp", __name__)
-EAT = ZoneInfo("Africa/Nairobi")  # Define timezone
+EAT = ZoneInfo("Africa/Nairobi")
 
 # -------------------- GET All Transfers --------------------
 @stock_transfer_bp.route("/stock_transfers", methods=["GET"])
+@swag_from({
+    'tags': ['Stock Transfers'],
+    'summary': 'Get all stock transfers',
+    'responses': {
+        200: {
+            'description': 'List of non-deleted stock transfers',
+            'content': {
+                'application/json': {
+                    'example': [
+                        {
+                            "id": 1,
+                            "transfer_type": "IN",
+                            "location_id": 2,
+                            "date": "2024-06-29T10:00:00+03:00",
+                            "notes": "Restocking main branch"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+})
 def get_stock_transfers():
     transfers = StockTransfer.query.filter_by(is_deleted=False).all()
     return jsonify([transfer.to_dict() for transfer in transfers]), 200
@@ -15,6 +38,23 @@ def get_stock_transfers():
 
 # -------------------- GET Single Transfer --------------------
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["GET"])
+@swag_from({
+    'tags': ['Stock Transfers'],
+    'summary': 'Get a specific stock transfer',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'description': 'Stock transfer ID',
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'responses': {
+        200: {'description': 'Transfer found'},
+        404: {'description': 'Transfer not found'}
+    }
+})
 def get_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
     if not transfer or transfer.is_deleted:
@@ -24,6 +64,34 @@ def get_stock_transfer(id):
 
 # -------------------- POST Create Transfer --------------------
 @stock_transfer_bp.route("/stock_transfers", methods=["POST"])
+@swag_from({
+    'tags': ['Stock Transfers'],
+    'summary': 'Create a new stock transfer',
+    'requestBody': {
+        'required': True,
+        'content': {
+            'application/json': {
+                'example': {
+                    "transfer_type": "OUT",
+                    "location_id": 1,
+                    "notes": "Sending goods to warehouse",
+                    "items": [
+                        {
+                            "product_id": 2,
+                            "quantity": 10
+                        }
+                    ],
+                    "date": "2025-06-29T13:00:00+03:00"
+                }
+            }
+        }
+    },
+    'responses': {
+        201: {'description': 'Transfer created successfully'},
+        400: {'description': 'Bad input or invalid references'},
+        500: {'description': 'Internal error'}
+    }
+})
 def create_stock_transfer():
     data = request.get_json()
     try:
@@ -44,11 +112,7 @@ def create_stock_transfer():
         if not items or not isinstance(items, list):
             return jsonify({"error": "At least one item is required"}), 400
 
-        # 🌍 Handle provided date or generate current timestamp in EAT
-        if date:
-            transfer_date = datetime.fromisoformat(date).replace(tzinfo=EAT)
-        else:
-            transfer_date = datetime.now(EAT)
+        transfer_date = datetime.fromisoformat(date).replace(tzinfo=EAT) if date else datetime.now(EAT)
 
         transfer = StockTransfer(
             transfer_type=transfer_type,
@@ -58,7 +122,7 @@ def create_stock_transfer():
             is_deleted=False
         )
         db.session.add(transfer)
-        db.session.flush()  # Get transfer.id
+        db.session.flush()
 
         for item in items:
             product_id = item.get("product_id")
@@ -96,8 +160,36 @@ def create_stock_transfer():
         return jsonify({"error": str(e)}), 500
 
 
-# -------------------- PUT Update Transfer (metadata only) --------------------
+# -------------------- PUT Update Transfer --------------------
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["PUT"])
+@swag_from({
+    'tags': ['Stock Transfers'],
+    'summary': 'Update a stock transfer (metadata only)',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'requestBody': {
+        'required': True,
+        'content': {
+            'application/json': {
+                'example': {
+                    "location_id": 2,
+                    "notes": "Updated destination"
+                }
+            }
+        }
+    },
+    'responses': {
+        200: {'description': 'Transfer updated'},
+        400: {'description': 'Invalid input'},
+        404: {'description': 'Transfer not found'}
+    }
+})
 def update_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
     if not transfer or transfer.is_deleted:
@@ -120,6 +212,24 @@ def update_stock_transfer(id):
 
 # -------------------- DELETE Soft Delete --------------------
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["DELETE"])
+@swag_from({
+    'tags': ['Stock Transfers'],
+    'summary': 'Soft delete a stock transfer',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'description': 'Stock transfer ID to delete',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'responses': {
+        200: {'description': 'Transfer marked as deleted'},
+        404: {'description': 'Transfer not found or already deleted'},
+        500: {'description': 'Database error'}
+    }
+})
 def delete_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
     if not transfer or transfer.is_deleted:

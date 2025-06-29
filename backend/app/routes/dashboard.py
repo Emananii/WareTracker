@@ -3,6 +3,7 @@ from ..models import db, Product, Purchase, StockTransfer, Supplier
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import func
+from flasgger import swag_from
 
 dashboard_bp = Blueprint("dashboard_routes", __name__)
 
@@ -11,6 +12,53 @@ EAT = ZoneInfo("Africa/Nairobi")
 
 
 @dashboard_bp.route("/dashboard/summary", methods=["GET"])
+@swag_from({
+    'tags': ['Dashboard'],
+    'summary': 'Get a dashboard summary with inventory, stock, purchases, and trends',
+    'description': 'Provides a high-level summary of inventory stats, recent activities, and top supplier trends.',
+    'responses': {
+        200: {
+            'description': 'Dashboard summary data',
+            'content': {
+                'application/json': {
+                    'example': {
+                        "total_items": 10,
+                        "total_stock": 265,
+                        "low_stock_count": 2,
+                        "out_of_stock_count": 1,
+                        "inventory_value": 4523.75,
+                        "total_purchase_value": 12000.0,
+                        "low_stock_items": [
+                            {
+                                "id": 3,
+                                "name": "Sugar",
+                                "stock_level": 2,
+                                "category": "Groceries"
+                            }
+                        ],
+                        "out_of_stock_items": [
+                            {
+                                "id": 5,
+                                "name": "Milk",
+                                "stock_level": 0,
+                                "category": "Dairy"
+                            }
+                        ],
+                        "recent_purchases": [],
+                        "recent_transfers": [],
+                        "supplier_spending_trends": [
+                            {
+                                "supplier_id": 1,
+                                "supplier_name": "ABC Suppliers",
+                                "total_spent": 4500.0
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+})
 def dashboard_summary():
     products = Product.query.all()
 
@@ -33,7 +81,7 @@ def dashboard_summary():
         StockTransfer.is_deleted == False
     ).order_by(StockTransfer.date.desc()).limit(5).all()
 
-    # ✨ Compute inventory value: sum of (stock_level * latest unit cost)
+    # Inventory value calculation
     inventory_value = 0.0
     for product in products:
         latest_purchase_item = None
@@ -48,12 +96,12 @@ def dashboard_summary():
         if latest_purchase_item:
             inventory_value += product.stock_level * latest_purchase_item.unit_cost
 
-    # ✨ Compute total purchase value
+    # Total purchase value
     total_purchase_value = db.session.query(
         db.func.sum(Purchase.total_cost)
     ).filter(Purchase.is_deleted == False).scalar() or 0.0
 
-    # ✨ Compute supplier spending trends
+    # Supplier spending trends
     supplier_spending = (
         db.session.query(
             Supplier.id,
@@ -81,10 +129,8 @@ def dashboard_summary():
         "total_stock": total_stock,
         "low_stock_count": len(low_stock_items),
         "out_of_stock_count": len(out_of_stock_items),
-
         "inventory_value": round(inventory_value, 2),
         "total_purchase_value": round(total_purchase_value, 2),
-
         "low_stock_items": [
             {
                 "id": p.id,
@@ -93,7 +139,6 @@ def dashboard_summary():
                 "category": p.category.name if p.category else None
             } for p in low_stock_items
         ],
-
         "out_of_stock_items": [
             {
                 "id": p.id,
@@ -102,26 +147,55 @@ def dashboard_summary():
                 "category": p.category.name if p.category else None
             } for p in out_of_stock_items
         ],
-
         "recent_purchases": [
             {
                 **p.to_dict(),
                 "purchase_date": p.purchase_date.replace(tzinfo=EAT).isoformat()
             } for p in purchases
         ],
-
         "recent_transfers": [
             {
                 **t.to_dict(),
                 "date": t.date.replace(tzinfo=EAT).isoformat()
             } for t in transfers
         ],
-
         "supplier_spending_trends": supplier_spending_trends
     }), 200
 
 
 @dashboard_bp.route("/dashboard/movements", methods=["GET"])
+@swag_from({
+    'tags': ['Dashboard'],
+    'summary': 'Get recent inventory movements (purchases and transfers)',
+    'description': 'Returns a list of inventory movement activities in the past 7 days',
+    'responses': {
+        200: {
+            'description': 'List of movements',
+            'content': {
+                'application/json': {
+                    'example': [
+                        {
+                            "id": 12,
+                            "date": "2025-06-28T14:30:00+03:00",
+                            "type": "PURCHASE",
+                            "quantity": 150,
+                            "notes": "Weekly restock",
+                            "source_or_destination": "Fresh Market"
+                        },
+                        {
+                            "id": 9,
+                            "date": "2025-06-27T10:00:00+03:00",
+                            "type": "OUT",
+                            "quantity": 45,
+                            "notes": "",
+                            "source_or_destination": "From Warehouse B"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+})
 def dashboard_movements():
     now = datetime.now(EAT)
     seven_days_ago = now - timedelta(days=7)

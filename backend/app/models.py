@@ -1,328 +1,292 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_serializer import SerializerMixin
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from sqlalchemy.ext.hybrid import hybrid_property
+from zoneinfo import ZoneInfo
 
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { BASE_URL } from "@/lib/constants";
+db = SQLAlchemy()
+EAT = ZoneInfo("Africa/Nairobi")
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+class Category(db.Model, SerializerMixin):
+    __tablename__ = "categories"
 
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
 
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+    products = db.relationship(
+        "Product", backref="category", cascade="all, delete-orphan")
 
-import { Trash2 } from "lucide-react";
+    serialize_rules = ("-products.category",)
 
-// --- Zod Schema ---
-const formSchema = z.object({
-  transfer_type: z.enum(["IN", "OUT"], {
-    required_error: "Transfer type is required",
-    invalid_type_error: "Transfer type must be 'IN' or 'OUT'",
-  }),
-  location_id: z.coerce.number().min(1, "Location is required"),
-  notes: z.string().optional(),
-  items: z
-    .array(
-      z.object({
-        product_id: z.coerce.number().min(1, "Item is required"),
-        quantity: z.coerce.number().min(1, "Minimum quantity is 1"),
-      })
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "is_deleted": self.is_deleted,
+        }
+
+
+class Supplier(db.Model, SerializerMixin):
+    __tablename__ = "suppliers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    contact = db.Column(db.String(100))
+    address = db.Column(db.String(255))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    is_deleted = db.Column(db.Boolean, default=False)
+
+    serialize_rules = ("-purchases",)
+
+
+class Product(db.Model, SerializerMixin):
+    __tablename__ = "products"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    sku = db.Column(db.String(50), unique=True)
+    unit = db.Column(db.String(20))
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False)
+
+    category_id = db.Column(
+        db.Integer,
+        db.ForeignKey("categories.id", name="fk_products_category_id"),
+        nullable=False
     )
-    .min(1, "At least one item is required"),
-});
 
-export default function AddStockTransferModal({ isOpen, onClose }) {
-  const { toast } = useToast();
-  const [items, setItems] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
+    purchase_items = db.relationship(
+        "PurchaseItem", backref="product", cascade="all, delete-orphan")
+    stock_transfer_items = db.relationship(
+        "StockTransferItem", backref="product", cascade="all, delete-orphan")
 
-  const { data: locations = [] } = useQuery({
-    queryKey: ["business_locations"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/business_locations`);
-      if (!res.ok) throw new Error("Failed to fetch locations");
-      return res.json();
-    },
-  });
+    serialize_rules = (
+        '-category.products',
+        '-purchase_items.product',
+        '-stock_transfer_items.product',
+    )
 
-  const { data: products = [] } = useQuery({
-    queryKey: ["products"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/products`);
-      if (!res.ok) throw new Error("Failed to fetch products");
-      return res.json();
-    },
-  });
+    @hybrid_property
+    def stock_level(self):
+        total_purchased = sum(
+            item.quantity for item in self.purchase_items
+            if item.purchase and not item.purchase.is_deleted
+        )
 
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      transfer_type: "IN",
-      location_id: undefined,
-      notes: "",
-      items: [],
-    },
-  });
+        total_in = sum(
+            item.quantity for item in self.stock_transfer_items
+            if item.stock_transfer and not item.stock_transfer.is_deleted
+            and item.stock_transfer.transfer_type == "IN"
+        )
 
-  const addItem = (product) => {
-    const updated = [
-      ...items,
-      {
-        product_id: product.id,
-        quantity: 1,
-      },
-    ];
-    setItems(updated);
-    form.setValue("items", updated);
-    setSearchQuery("");
-  };
+        total_out = sum(
+            item.quantity for item in self.stock_transfer_items
+            if item.stock_transfer and not item.stock_transfer.is_deleted
+            and item.stock_transfer.transfer_type == "OUT"
+        )
 
-  const removeItem = (index) => {
-    const updated = [...items];
-    updated.splice(index, 1);
-    setItems(updated);
-    form.setValue("items", updated);
-  };
+        return total_purchased + total_in - total_out
 
-  const handleItemChange = (index, field, value) => {
-    const updated = [...items];
-    updated[index] = { ...updated[index], [field]: value };
-    setItems(updated);
-    form.setValue("items", updated);
-  };
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "sku": self.sku,
+            "unit": self.unit,
+            "description": self.description,
+            "category_id": self.category_id,
+            "category": self.category.to_dict() if self.category else None,
+            "stock_level": self.stock_level,
+            "is_deleted": self.is_deleted,
+        }
 
-  const createTransferMutation = useMutation({
-    mutationFn: async (data) => {
-      const transfer = await apiRequest("POST", `${BASE_URL}/stock_transfers`, {
-        transfer_type: data.transfer_type,
-        location_id: data.location_id,
-        notes: data.notes,
-        items: data.items,
-      });
-      return transfer;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Transfer created",
-        description: "The stock transfer has been added successfully.",
-      });
 
-      setTimeout(() => {
-        form.reset();
-        setItems([]);
-        setSearchQuery("");
-        onClose();
-        window.location.reload();
-      }, 1500);
+class Purchase(db.Model, SerializerMixin):
+    __tablename__ = 'purchases'
 
-      queryClient.invalidateQueries({ queryKey: ["stock_transfers"] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Something went wrong",
-        description: error.message || "Could not create transfer",
-        variant: "destructive",
-      });
-    },
-  });
+    id = db.Column(db.Integer, primary_key=True)
+    supplier_id = db.Column(
+        db.Integer,
+        db.ForeignKey("suppliers.id", name="fk_purchases_supplier_id"),
+        nullable=False
+    )
+    total_cost = db.Column(db.Float, nullable=False, default=0.0)
+    purchase_date = db.Column(
+        db.DateTime, nullable=False, default=datetime.utcnow)
+    notes = db.Column(db.Text)
 
-  const onSubmit = (data) => {
-    createTransferMutation.mutate(data);
-  };
+    is_deleted = db.Column(db.Boolean, default=False)
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    supplier = relationship("Supplier", backref="purchases")
 
-  // ✅ Filter only active business locations
-  const activeLocations = locations.filter((loc) => loc.is_active);
+    items = relationship(
+        "PurchaseItem",
+        backref="purchase",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-800">
-            Create Stock Transfer
-          </DialogTitle>
-        </DialogHeader>
+    serialize_rules = ('-supplier.purchases',)
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Transfer Type */}
-            <FormField
-              control={form.control}
-              name="transfer_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Transfer Type</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="IN">IN (Stock In)</SelectItem>
-                      <SelectItem value="OUT">OUT (Stock Out)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    def to_dict(self):
+        local_date = self.purchase_date.astimezone(EAT) if self.purchase_date else None  # ✅ localized
+        return {
+            "id": self.id,
+            "supplier_id": self.supplier_id,
+            "total_cost": float(self.total_cost) if self.total_cost else 0.0,
+            "purchase_date": local_date.isoformat() if local_date else None,
+            "notes": self.notes,
+            "is_deleted": self.is_deleted,
+            "supplier": self.supplier.to_dict() if self.supplier else None,
+            "items": [item.to_dict() for item in self.items]
+        }
 
-            {/* Location Select */}
-            <FormField
-              control={form.control}
-              name="location_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Location</FormLabel>
-                  <Select
-                    value={(field.value ?? "").toString()}
-                    onValueChange={(value) => field.onChange(parseInt(value))}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {activeLocations.map((location) => (
-                        <SelectItem key={location.id} value={location.id.toString()}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            {/* Product Search */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Products
-              </label>
-              <Input
-                type="text"
-                placeholder="Type to search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <div className="mt-2 border rounded shadow bg-white max-h-48 overflow-auto">
-                  {filteredProducts.length === 0 && (
-                    <div className="p-2 text-sm text-gray-500">No products found</div>
-                  )}
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="p-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => addItem(product)}
-                    >
-                      {product.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+class PurchaseItem(db.Model, SerializerMixin):
+    __tablename__ = "purchase_items"
 
-            {/* Items Table */}
-            <div className="space-y-4">
-              <h4 className="text-md font-semibold text-gray-700">Selected Items</h4>
-              {items.map((item, index) => {
-                const product = products.find((p) => p.id === item.product_id);
-                return (
-                  <div
-                    key={index}
-                    className="grid grid-cols-1 md:grid-cols-5 items-center gap-4 p-4 border rounded-lg shadow-sm"
-                  >
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Product</label>
-                      <Input readOnly value={product?.name ?? ""} className="bg-gray-100" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Qty</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity.toString()}
-                        onChange={(e) =>
-                          handleItemChange(index, "quantity", parseInt(e.target.value))
-                        }
-                      />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button type="button" variant="ghost" onClick={() => removeItem(index)}>
-                        <Trash2 className="h-5 w-5 text-red-500" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+    id = db.Column(db.Integer, primary_key=True)
+    purchase_id = db.Column(
+        db.Integer,
+        db.ForeignKey("purchases.id", name="fk_purchase_items_purchase_id"),
+        nullable=False
+    )
+    product_id = db.Column(
+        db.Integer,
+        db.ForeignKey("products.id", name="fk_purchase_items_product_id"),
+        nullable=False
+    )
 
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Notes..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_cost = db.Column(db.Float, nullable=False, default=0.0)
 
-            {/* Footer Buttons */}
-            <div className="flex space-x-3 pt-4">
-              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={createTransferMutation.isPending}
-              >
-                {createTransferMutation.isPending ? "Creating..." : "Create Transfer"}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+    serialize_rules = (
+        '-purchase.items',
+        '-product.purchase_items',
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "purchase_id": self.purchase_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "unit_cost": float(self.unit_cost),
+            "product": self.product.to_dict() if self.product else None
+        }
+
+
+class BusinessLocation(db.Model, SerializerMixin):
+    __tablename__ = "business_locations"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    address = db.Column(db.String(255))
+    contact_person = db.Column(db.String(100))
+    phone = db.Column(db.String(50))
+    notes = db.Column(db.Text)
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_deleted = db.Column(db.Boolean, default=False)
+
+    stock_transfers = db.relationship(
+        "StockTransfer",
+        back_populates="location",
+        cascade="all, delete-orphan"
+    )
+
+    serialize_rules = ("-stock_transfers.location",)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "address": self.address,
+            "contact_person": self.contact_person,
+            "phone": self.phone,
+            "notes": self.notes,
+            "is_active": self.is_active,
+        }
+
+
+class StockTransfer(db.Model, SerializerMixin):
+    __tablename__ = "stock_transfers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    transfer_type = db.Column(db.String(10), nullable=False)
+
+    location_id = db.Column(
+        db.Integer,
+        db.ForeignKey("business_locations.id", name="fk_stock_transfers_location_id"),
+        nullable=True
+    )
+
+    location = db.relationship("BusinessLocation", back_populates="stock_transfers")
+
+    notes = db.Column(db.Text)
+    is_deleted = db.Column(db.Boolean, default=False)
+
+    items = db.relationship(
+        "StockTransferItem",
+        backref="stock_transfer",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
+    serialize_rules = ("-location.stock_transfers", "-items.stock_transfer")
+
+    def to_dict(self):
+        local_date = self.date.astimezone(EAT) if self.date else None  # ✅ localized
+        return {
+            "id": self.id,
+            "date": local_date.isoformat() if local_date else None,
+            "transfer_type": self.transfer_type,
+            "location_id": self.location_id,
+            "location": self.location.to_dict() if self.location else None,
+            "notes": self.notes,
+            "is_deleted": self.is_deleted,
+            "items": [item.to_dict() for item in self.items]
+        }
+
+
+class StockTransferItem(db.Model, SerializerMixin):
+    __tablename__ = "stock_transfer_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    stock_transfer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stock_transfers.id",
+                      name="fk_stock_transfer_items_transfer_id", ondelete="CASCADE"),
+        nullable=False
+    )
+    product_id = db.Column(
+        db.Integer,
+        db.ForeignKey(
+            "products.id", name="fk_stock_transfer_items_product_id"),
+        nullable=False
+    )
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+
+    serialize_rules = (
+        '-stock_transfer.items',
+        '-product.stock_transfer_items',
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "stock_transfer_id": self.stock_transfer_id,
+            "product_id": self.product_id,
+            "quantity": self.quantity,
+            "product": self.product.to_dict() if self.product else None
+        }

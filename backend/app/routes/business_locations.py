@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flasgger.utils import swag_from
 from ..models import db, BusinessLocation
 
 business_location_bp = Blueprint("business_location_bp", __name__)
@@ -6,6 +7,31 @@ business_location_bp = Blueprint("business_location_bp", __name__)
 
 # GET all active business locations
 @business_location_bp.route("/business_locations", methods=["GET"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Get all active business locations',
+    'responses': {
+        200: {
+            'description': 'A list of active business locations',
+            'content': {
+                'application/json': {
+                    'example': [
+                        {
+                            "id": 1,
+                            "name": "Main Warehouse",
+                            "address": "Nairobi",
+                            "contact_person": "John Doe",
+                            "phone": "0712345678",
+                            "notes": "",
+                            "is_active": True,
+                            "is_deleted": False
+                        }
+                    ]
+                }
+            }
+        }
+    }
+})
 def get_business_locations():
     locations = BusinessLocation.query.filter_by(is_deleted=False).all()
     return jsonify([location.to_dict() for location in locations]), 200
@@ -13,6 +39,41 @@ def get_business_locations():
 
 # GET a specific business location (active or not)
 @business_location_bp.route("/business_locations/<int:id>", methods=["GET"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Get a specific business location by ID',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'description': 'Business location ID',
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'responses': {
+        200: {
+            'description': 'Business location details',
+            'content': {
+                'application/json': {
+                    'example': {
+                        "id": 1,
+                        "name": "Main Warehouse",
+                        "address": "Nairobi",
+                        "contact_person": "John Doe",
+                        "phone": "0712345678",
+                        "notes": "",
+                        "is_active": True,
+                        "is_deleted": False
+                    }
+                }
+            }
+        },
+        404: {
+            'description': 'Location not found'
+        }
+    }
+})
 def get_business_location(id):
     location = BusinessLocation.query.get(id)
     if not location:
@@ -22,6 +83,32 @@ def get_business_location(id):
 
 # CREATE a new business location
 @business_location_bp.route("/business_locations", methods=["POST"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Create a new business location',
+    'requestBody': {
+        'required': True,
+        'content': {
+            'application/json': {
+                'example': {
+                    "name": "Main Warehouse",
+                    "address": "Nairobi",
+                    "contact_person": "John Doe",
+                    "phone": "0712345678",
+                    "notes": ""
+                }
+            }
+        }
+    },
+    'responses': {
+        201: {
+            'description': 'Business location created',
+        },
+        400: {
+            'description': 'Missing fields or duplicate location'
+        }
+    }
+})
 def create_business_location():
     data = request.get_json()
     try:
@@ -52,6 +139,37 @@ def create_business_location():
 
 # UPDATE business location details
 @business_location_bp.route("/business_locations/<int:id>", methods=["PUT"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Update a business location',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'description': 'Business location ID',
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'requestBody': {
+        'required': True,
+        'content': {
+            'application/json': {
+                'example': {
+                    "name": "Updated Warehouse",
+                    "address": "New Address",
+                    "contact_person": "Jane Doe",
+                    "phone": "0722334455",
+                    "notes": "Now handling perishables"
+                }
+            }
+        }
+    },
+    'responses': {
+        200: {'description': 'Business location updated'},
+        404: {'description': 'Location not found'}
+    }
+})
 def update_business_location(id):
     location = BusinessLocation.query.get(id)
     if not location:
@@ -69,6 +187,22 @@ def update_business_location(id):
 
 # TOGGLE is_active status
 @business_location_bp.route("/business_locations/<int:id>/toggle_active", methods=["PATCH"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Toggle the active status of a business location',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'responses': {
+        200: {'description': 'Active status toggled'},
+        404: {'description': 'Location not found'}
+    }
+})
 def toggle_business_location_active(id):
     location = BusinessLocation.query.get(id)
     if not location:
@@ -84,8 +218,24 @@ def toggle_business_location_active(id):
     }), 200
 
 
-# DELETE a business location
+# DELETE a business location (soft delete)
 @business_location_bp.route("/business_locations/<int:id>/delete", methods=["PATCH"])
+@swag_from({
+    'tags': ['Business Locations'],
+    'summary': 'Soft delete a business location',
+    'parameters': [
+        {
+            'name': 'id',
+            'in': 'path',
+            'required': True,
+            'schema': {'type': 'integer'}
+        }
+    ],
+    'responses': {
+        200: {'description': 'Business location marked as deleted'},
+        404: {'description': 'Location not found'}
+    }
+})
 def soft_delete_business_location(id):
     location = BusinessLocation.query.get(id)
     if not location:
