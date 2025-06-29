@@ -32,6 +32,7 @@ product_bp = Blueprint("product_routes", __name__)
     }
 })
 def get_products():
+    # Fetch only products that are not deleted AND belong to non-deleted categories
     products = (
         Product.query
         .filter(Product.is_deleted == False)
@@ -78,6 +79,7 @@ def get_products():
     }
 })
 def get_product(id):
+    # Return 404 if product doesn't exist or if its category was soft-deleted
     product = Product.query.filter_by(id=id, is_deleted=False).first()
     if not product or (product.category and product.category.is_deleted):
         return jsonify({"error": "Product not found or category is deleted"}), 404
@@ -125,6 +127,7 @@ def create_product():
     data = request.get_json()
 
     try:
+        # Build new product object from request data
         new_product = Product(
             name=data["name"],
             sku=data.get("sku"),
@@ -134,6 +137,7 @@ def create_product():
             is_deleted=False
         )
 
+        # Ensure the assigned category exists and hasn't been soft-deleted
         category = Category.query.filter_by(id=new_product.category_id, is_deleted=False).first()
         if not category:
             return jsonify({"error": "Invalid or deleted category"}), 400
@@ -143,8 +147,10 @@ def create_product():
         return jsonify(new_product.to_dict()), 201
 
     except KeyError as e:
+        # Handles missing required fields
         return jsonify({"error": f"Missing field: {str(e)}"}), 400
     except IntegrityError:
+        # Handles DB constraint violation, e.g., unique name or SKU
         db.session.rollback()
         return jsonify({"error": "Product with this name or SKU already exists"}), 409
 
@@ -200,10 +206,13 @@ def update_product(id):
         return jsonify({"error": "Product not found"}), 404
 
     data = request.get_json()
+
+    # Dynamically update only the fields provided in the request
     for field in ["name", "sku", "unit", "description", "category_id"]:
         if field in data:
             setattr(product, field, data[field])
 
+    # If category is being changed, validate the new category
     if "category_id" in data:
         new_category = Category.query.filter_by(id=data["category_id"], is_deleted=False).first()
         if not new_category:
@@ -233,10 +242,12 @@ def update_product(id):
     }
 })
 def delete_product(id):
+    # Fetch the product only if it hasn't been deleted yet
     product = Product.query.filter_by(id=id, is_deleted=False).first()
     if not product:
         return jsonify({"error": "Product not found or already deleted"}), 404
 
+    # Perform a soft delete by setting the flag instead of removing from DB
     product.is_deleted = True
     db.session.commit()
     return jsonify({"message": f"Product #{id} soft-deleted"}), 200

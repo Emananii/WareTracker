@@ -4,7 +4,6 @@ from ..models import db, Category, Product
 
 category_bp = Blueprint("category_bp", __name__)
 
-
 @category_bp.route("/categories", methods=["GET"])
 @swag_from({
     'tags': ['Categories'],
@@ -28,6 +27,7 @@ category_bp = Blueprint("category_bp", __name__)
     }
 })
 def get_categories():
+    # Retrieve all categories that have not been soft-deleted
     categories = Category.query.filter_by(is_deleted=False).all()
     return jsonify([cat.to_dict() for cat in categories]), 200
 
@@ -64,6 +64,7 @@ def get_categories():
     }
 })
 def get_category(id):
+    # Fetch a category by ID only if it's not soft-deleted
     category = Category.query.filter_by(id=id, is_deleted=False).first()
     if not category:
         return jsonify({"error": "Category not found or has been deleted"}), 404
@@ -102,21 +103,26 @@ def create_category():
             return jsonify({"error": "Category name is required"}), 400
 
         existing_category = Category.query.filter_by(name=name).first()
+
+        # Prevent duplicate active category names
         if existing_category and not existing_category.is_deleted:
             return jsonify({"error": "Category with this name already exists"}), 409
 
+        # Restore a previously deleted category
         if existing_category and existing_category.is_deleted:
             existing_category.is_deleted = False
             existing_category.description = description
             db.session.commit()
             return jsonify(existing_category.to_dict()), 200
 
+        # Create a completely new category
         new_category = Category(name=name, description=description)
         db.session.add(new_category)
         db.session.commit()
         return jsonify(new_category.to_dict()), 201
+
     except Exception as e:
-        db.session.rollback()
+        db.session.rollback()  # Revert any partial changes on error
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
@@ -151,16 +157,21 @@ def create_category():
     }
 })
 def update_category(id):
+    # Ensure the category exists and hasn't been soft-deleted
     category = Category.query.filter_by(id=id, is_deleted=False).first()
     if not category:
         return jsonify({"error": "Category not found or has been deleted"}), 404
 
     data = request.get_json()
+    
+    # Check for name conflicts with other categories
     if "name" in data:
         new_name = data["name"]
         if Category.query.filter(Category.name == new_name, Category.id != id, Category.is_deleted == False).first():
             return jsonify({"error": "Another non-deleted category with this name already exists"}), 409
         category.name = new_name
+
+    # Update description if provided
     if "description" in data:
         category.description = data["description"]
 
@@ -191,10 +202,12 @@ def update_category(id):
     }
 })
 def delete_category(id):
+    # Find the category if it's active (not already deleted)
     category = Category.query.filter_by(id=id, is_deleted=False).first()
     if not category:
         return jsonify({"error": "Category not found or already deleted"}), 404
 
+    # Soft-delete by setting the flag instead of removing from DB
     category.is_deleted = True
     try:
         db.session.commit()
