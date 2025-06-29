@@ -21,8 +21,6 @@ migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
-
-    # ---- ✅ Swagger Configuration Fix ----
     app.config['SWAGGER'] = {
         'title': 'Warehouse Tracker API',
         'uiversion': 3,
@@ -39,7 +37,7 @@ def create_app():
     }
     Swagger(app)
 
-    # ---- ✅ Environment-aware DB config ----
+    #Environment-aware DB config
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
         'DATABASE_URL', 'sqlite:///warehouse.db'
     )
@@ -51,7 +49,7 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://your-netlify-site.netlify.app"  # ✅ Replace with your Netlify URL
+        "https://waretracker.netlify.app/"
     ]}})
 
     
