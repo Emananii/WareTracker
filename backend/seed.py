@@ -1,20 +1,19 @@
 from app import create_app
 from app.models import (
-    db, Supplier, Purchase, Product, PurchaseItem,
-    Category, BusinessLocation, StockTransfer, StockTransferItem,
+    db, Supplier, Product,
+    Category, BusinessLocation,
 )
-from datetime import datetime, timedelta, timezone
-import random
+from datetime import datetime
+import pytz
+
+EAT = pytz.timezone("Africa/Nairobi")
 
 app = create_app()
 
 with app.app_context():
     print("🔄 Clearing existing data...")
 
-    StockTransferItem.query.delete()
-    StockTransfer.query.delete()
-    PurchaseItem.query.delete()
-    Purchase.query.delete()
+    # Delete in reverse dependency order
     Product.query.delete()
     Supplier.query.delete()
     Category.query.delete()
@@ -34,25 +33,25 @@ with app.app_context():
 
     print("🏢 Seeding business locations...")
     locations = [
-        BusinessLocation(name="Downtown Outlet", address="1st Avenue, Nairobi", contact_person="Mark", phone="0712345678"),
-        BusinessLocation(name="Uptown Branch", address="Westlands, Nairobi", contact_person="Linda", phone="0722456789"),
-        BusinessLocation(name="Industrial Area Depot", address="Mombasa Road", contact_person="Brian", phone="0733567890"),
+        BusinessLocation(name="Flea Bottomers", address="Flea Bottom, King's Landing", contact_person="Gendry", phone="0711223344"),
+        BusinessLocation(name="Winterfell Storehouse", address="Winterfell Keep", contact_person="Bran Stark", phone="0722334455"),
+        BusinessLocation(name="Dragonstone Depot", address="Dragonstone Island", contact_person="Davos Seaworth", phone="0733445566"),
     ]
     db.session.add_all(locations)
     db.session.commit()
 
     print("🌱 Seeding suppliers...")
     suppliers = [
-        Supplier(name="Acme Supplies Ltd", contact="Jane Doe", address="123 Industrial Area, Nairobi"),
-        Supplier(name="Global Traders Co.", contact="John Smith", address="45 Warehouse Road, Mombasa"),
-        Supplier(name="FreshFoods Warehouse", contact="Alice Wanjiru", address="789 Food Street, Kisumu"),
-        Supplier(name="TechGear Importers", contact="Michael Otieno", address="Plot 66, Thika Highway"),
-        Supplier(name="Green Earth Suppliers", contact="Wambui Karanja", address="22 Green Valley, Eldoret"),
+        Supplier(name="Jon Snow", contact="The Bastard of Winterfell", address="Castle Black, The Wall"),
+        Supplier(name="Daenerys Targaryen", contact="Mother of Dragons", address="Meereen, Slaver's Bay"),
+        Supplier(name="Tyrion Lannister", contact="Hand of the Queen", address="Red Keep, King's Landing"),
+        Supplier(name="Arya Stark", contact="Faceless One", address="Braavos"),
+        Supplier(name="Cersei Lannister", contact="Queen Regent", address="Red Keep, King's Landing"),
     ]
     db.session.add_all(suppliers)
     db.session.commit()
 
-    print("📦 Seeding products...")
+    print("📦 Seeding products (inventory)...")
     products = [
         Product(name="Tomatoes", sku="TMT-001", unit="kg", description="Fresh red tomatoes", category_id=categories[0].id),
         Product(name="USB Cable", sku="USB-123", unit="pcs", description="USB 2.0 high-speed data cable", category_id=categories[1].id),
@@ -68,71 +67,4 @@ with app.app_context():
     db.session.add_all(products)
     db.session.commit()
 
-    print("🧾 Seeding purchases...")
-    purchases = []
-
-    for i in range(8):
-        days_ago = random.randint(0, 90)
-        purchase = Purchase(
-            supplier_id=suppliers[i % len(suppliers)].id,
-            purchase_date=datetime.now(timezone.utc) - timedelta(days=days_ago),
-            total_cost=0.0,
-            notes=f"Generated purchase {i+1}"
-        )
-        db.session.add(purchase)
-        purchases.append(purchase)
-
-    db.session.commit()
-
-    print("📋 Seeding purchase items...")
-    for purchase in purchases:
-        selected_products = random.sample(products, random.randint(2, 4))
-        total_cost = 0.0
-
-        for product in selected_products:
-            quantity = random.randint(1, 10)
-            unit_cost = round(random.uniform(50, 500), 2)
-
-            item = PurchaseItem(
-                purchase_id=purchase.id,
-                product_id=product.id,
-                quantity=quantity,
-                unit_cost=unit_cost
-            )
-            db.session.add(item)
-            total_cost += quantity * unit_cost
-
-        purchase.total_cost = round(total_cost, 2)
-
-    db.session.commit()
-
-    print("🚚 Seeding stock transfers...")
-    stock_transfers = []
-    for i in range(3):
-        transfer = StockTransfer(
-            location_id=random.choice(locations).id,
-            date=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 10)),
-            transfer_type=random.choice(["IN", "OUT"]),
-            notes=f"Stock transfer #{i+1}"
-        )
-        db.session.add(transfer)
-        stock_transfers.append(transfer)
-
-    db.session.commit()
-
-    print("📦 Seeding stock transfer items...")
-    for transfer in stock_transfers:
-        selected_products = random.sample(products, random.randint(2, 5))
-
-        for product in selected_products:
-            quantity = random.randint(1, 20)
-            item = StockTransferItem(
-                stock_transfer_id=transfer.id,
-                product_id=product.id,
-                quantity=quantity
-            )
-            db.session.add(item)
-
-    db.session.commit()
-
-    print("✅ Done seeding categories, suppliers, products, purchases, business locations, and stock transfers!")
+    print("✅ Done seeding basic setup — categories, suppliers, inventory, and business locations.")

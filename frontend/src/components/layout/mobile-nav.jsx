@@ -22,7 +22,7 @@ const navigation = [
   { name: "Suppliers", href: "/suppliers", icon: Truck }, // 👈 Added here
   { name: "Movements", href: "/movements", icon: Users },
   { name: "Businesses", href: "/businesses", icon: Warehouse },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
+  //{ name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 
 export default function MobileNav({ isOpen, onClose }) {

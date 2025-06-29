@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -70,6 +70,8 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
     },
   });
 
+  const activeLocations = locations.filter((loc) => loc.is_active && !loc.is_deleted);
+
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
@@ -88,6 +90,14 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
       items: [],
     },
   });
+
+  useEffect(() => {
+    const selectedId = form.getValues("location_id");
+    const stillValid = activeLocations.some((loc) => loc.id === selectedId);
+    if (!stillValid) {
+      form.setValue("location_id", undefined);
+    }
+  }, [locations]);
 
   const addItem = (product) => {
     const updated = [
@@ -122,7 +132,6 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
         transfer_type: data.transfer_type,
         location_id: data.location_id,
         notes: data.notes,
-        date: new Date().toISOString(),
         items: data.items,
       });
       return transfer;
@@ -214,7 +223,7 @@ export default function AddStockTransferModal({ isOpen, onClose }) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {locations.map((location) => (
+                      {activeLocations.map((location) => (
                         <SelectItem key={location.id} value={location.id.toString()}>
                           {location.name}
                         </SelectItem>

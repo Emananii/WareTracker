@@ -19,7 +19,7 @@ const navigation = [
   { name: "Stock Transfers", href: "/stock-transfers", icon: Truck },
   { name: "Businesses", href: "/businesses", icon: Warehouse },
   { name: "Suppliers", href: "/suppliers", icon: Factory }, // ✅ Added this line
-  { name: "Reports", href: "/reports", icon: BarChart3 },
+ // { name: "Reports", href: "/reports", icon: BarChart3 },
 ];
 
 export default function Sidebar() {

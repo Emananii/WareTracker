@@ -79,9 +79,6 @@ export default function EditBusinessModal({ business, isOpen, onClose }) {
             <DialogTitle className="text-lg font-semibold text-gray-800">
               Edit Business
             </DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </DialogHeader>
 

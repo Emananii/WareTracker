@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify
 from ..models import db, StockTransfer, StockTransferItem, BusinessLocation, Product
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 stock_transfer_bp = Blueprint("stock_transfer_bp", __name__)
+EAT = ZoneInfo("Africa/Nairobi")  # Define timezone
 
 # -------------------- GET All Transfers --------------------
 @stock_transfer_bp.route("/stock_transfers", methods=["GET"])
@@ -39,38 +41,43 @@ def create_stock_transfer():
             if not location:
                 return jsonify({"error": "Invalid location_id"}), 400
 
+        if not items or not isinstance(items, list):
+            return jsonify({"error": "At least one item is required"}), 400
+
+        # 🌍 Handle provided date or generate current timestamp in EAT
+        if date:
+            transfer_date = datetime.fromisoformat(date).replace(tzinfo=EAT)
+        else:
+            transfer_date = datetime.now(EAT)
+
         transfer = StockTransfer(
             transfer_type=transfer_type,
             location_id=location_id,
             notes=notes,
-            date=datetime.fromisoformat(date) if date else datetime.utcnow()
+            date=transfer_date,
+            is_deleted=False
         )
         db.session.add(transfer)
-        db.session.flush()  # Ensure we can access transfer.id
+        db.session.flush()  # Get transfer.id
 
         for item in items:
             product_id = item.get("product_id")
             quantity = item.get("quantity")
 
-            if product_id is None or quantity is None:
+            if not product_id or quantity is None:
                 return jsonify({"error": "Each item must have product_id and quantity"}), 400
 
             product = Product.query.get(product_id)
-            if not product:
-                return jsonify({"error": f"Product ID {product_id} not found"}), 404
+            if not product or product.is_deleted:
+                return jsonify({"error": f"Invalid or deleted product ID {product_id}"}), 400
 
-            if quantity < 0:
-                return jsonify({"error": f"Invalid quantity for product {product.name}"}), 400
+            if not isinstance(quantity, int) or quantity <= 0:
+                return jsonify({"error": f"Invalid quantity: must be positive integer"}), 400
 
-            # ✅ Fix: Adjust using stock_level
-            if transfer_type == "IN":
-                product.stock_level += quantity
-            else:
-                if product.stock_level < quantity:
-                    return jsonify({
-                        "error": f"Not enough stock for product {product.name}. Available: {product.stock_level}, Needed: {quantity}"
-                    }), 400
-                product.stock_level -= quantity
+            if transfer_type == "OUT" and product.stock_level < quantity:
+                return jsonify({
+                    "error": f"Not enough stock for product '{product.name}'. Available: {product.stock_level}, Needed: {quantity}"
+                }), 400
 
             transfer_item = StockTransferItem(
                 stock_transfer_id=transfer.id,
@@ -111,7 +118,7 @@ def update_stock_transfer(id):
     return jsonify(transfer.to_dict()), 200
 
 
-# -------------------- DELETE Soft Delete with Reversal --------------------
+# -------------------- DELETE Soft Delete --------------------
 @stock_transfer_bp.route("/stock_transfers/<int:id>", methods=["DELETE"])
 def delete_stock_transfer(id):
     transfer = StockTransfer.query.get(id)
@@ -119,25 +126,9 @@ def delete_stock_transfer(id):
         return jsonify({"error": "Stock transfer not found or already deleted"}), 404
 
     try:
-        for item in transfer.items:
-            product = Product.query.get(item.product_id)
-            if not product:
-                continue  # silently skip
-
-            if transfer.transfer_type == "IN":
-                # ✅ Remove stock that was added (reverse IN)
-                if product.stock_level < item.quantity:
-                    return jsonify({
-                        "error": f"Cannot delete: insufficient stock to reverse IN transfer for product {product.name}"
-                    }), 400
-                product.stock_level -= item.quantity
-            elif transfer.transfer_type == "OUT":
-                # ✅ Add back stock that was removed (reverse OUT)
-                product.stock_level += item.quantity
-
         transfer.is_deleted = True
         db.session.commit()
-        return jsonify({"message": f"Stock transfer #{id} marked as deleted and reversed"}), 200
+        return jsonify({"message": f"Stock transfer #{id} marked as deleted"}), 200
 
     except Exception as e:
         db.session.rollback()
