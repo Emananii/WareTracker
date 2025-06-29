@@ -7,7 +7,7 @@ from flasgger import swag_from
 
 dashboard_bp = Blueprint("dashboard_routes", __name__)
 
-# Define EAT timezone
+# Define East Africa Timezone
 EAT = ZoneInfo("Africa/Nairobi")
 
 
@@ -28,31 +28,11 @@ EAT = ZoneInfo("Africa/Nairobi")
                         "out_of_stock_count": 1,
                         "inventory_value": 4523.75,
                         "total_purchase_value": 12000.0,
-                        "low_stock_items": [
-                            {
-                                "id": 3,
-                                "name": "Sugar",
-                                "stock_level": 2,
-                                "category": "Groceries"
-                            }
-                        ],
-                        "out_of_stock_items": [
-                            {
-                                "id": 5,
-                                "name": "Milk",
-                                "stock_level": 0,
-                                "category": "Dairy"
-                            }
-                        ],
-                        "recent_purchases": [],
-                        "recent_transfers": [],
-                        "supplier_spending_trends": [
-                            {
-                                "supplier_id": 1,
-                                "supplier_name": "ABC Suppliers",
-                                "total_spent": 4500.0
-                            }
-                        ]
+                        "low_stock_items": [...],
+                        "out_of_stock_items": [...],
+                        "recent_purchases": [...],
+                        "recent_transfers": [...],
+                        "supplier_spending_trends": [...]
                     }
                 }
             }
@@ -65,12 +45,14 @@ def dashboard_summary():
     total_items = len(products)
     total_stock = sum(p.stock_level for p in products)
 
+    # Identify products with low or no stock
     low_stock_items = [p for p in products if 0 < p.stock_level <= 5]
     out_of_stock_items = [p for p in products if p.stock_level == 0]
 
     now = datetime.now(EAT)
     seven_days_ago = now - timedelta(days=7)
 
+    # Get recent purchases and transfers (last 7 days)
     purchases = Purchase.query.filter(
         Purchase.purchase_date >= seven_days_ago,
         Purchase.is_deleted == False
@@ -81,7 +63,7 @@ def dashboard_summary():
         StockTransfer.is_deleted == False
     ).order_by(StockTransfer.date.desc()).limit(5).all()
 
-    # Inventory value calculation
+    # Calculate current inventory value based on latest non-deleted purchase
     inventory_value = 0.0
     for product in products:
         latest_purchase_item = None
@@ -96,12 +78,12 @@ def dashboard_summary():
         if latest_purchase_item:
             inventory_value += product.stock_level * latest_purchase_item.unit_cost
 
-    # Total purchase value
+    # Get total value of all non-deleted purchases
     total_purchase_value = db.session.query(
         db.func.sum(Purchase.total_cost)
     ).filter(Purchase.is_deleted == False).scalar() or 0.0
 
-    # Supplier spending trends
+    # Aggregate supplier spending
     supplier_spending = (
         db.session.query(
             Supplier.id,
@@ -200,6 +182,7 @@ def dashboard_movements():
     now = datetime.now(EAT)
     seven_days_ago = now - timedelta(days=7)
 
+    # Get all recent purchases and transfers
     recent_purchases = Purchase.query.filter(
         Purchase.purchase_date >= seven_days_ago,
         Purchase.is_deleted == False
@@ -212,6 +195,7 @@ def dashboard_movements():
 
     movement_data = []
 
+    # Format purchase data into movement records
     for p in recent_purchases:
         total_quantity = sum(i.quantity for i in p.items)
         movement_data.append({
@@ -223,6 +207,7 @@ def dashboard_movements():
             "source_or_destination": p.supplier.name if p.supplier else "Unknown Supplier"
         })
 
+    # Format transfer data into movement records
     for t in recent_transfers:
         total_quantity = sum(i.quantity for i in t.items)
         label = f"{'To' if t.transfer_type == 'IN' else 'From'} {t.location.name}" if t.location else "No location"
@@ -235,5 +220,6 @@ def dashboard_movements():
             "source_or_destination": label
         })
 
+    # Return the 10 most recent movement events
     movement_data.sort(key=lambda x: x["date"], reverse=True)
     return jsonify(movement_data[:10]), 200
