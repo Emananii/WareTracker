@@ -21,7 +21,7 @@
     <a href="https://github.com/Emananii/WareTracker"><strong>Explore the repo »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/Emananii/WareTracker">View Demo</a>
+    <a href="https://waretracker.netlify.app/">View Demo</a>
     ·
     <a href="https://github.com/Emananii/WareTracker/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
