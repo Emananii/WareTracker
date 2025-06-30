@@ -1,3 +1,24 @@
+from flask import Flask
+from flask_migrate import Migrate
+from flask_cors import CORS
+from .models import db
+
+from .routes.suppliers import suppliers_bp
+from .routes.purchases import purchases_bp
+from .routes.products import product_bp
+from .routes.purchase_items import purchase_item_bp
+from .routes.categories import category_bp
+from .routes.stock_transfers import stock_transfer_bp
+from .routes.stock_transfer_items import stock_transfer_item_bp
+from .routes.business_locations import business_location_bp
+from .routes.dashboard import dashboard_bp
+
+from flasgger import Swagger
+
+import os
+
+migrate = Migrate()
+
 def create_app():
     app = Flask(__name__)
     app.config['SWAGGER'] = {
@@ -24,7 +45,8 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
-    
+
+    # ✅ CREATE TABLES HERE
     with app.app_context():
         from sqlalchemy import inspect
         inspector = inspect(db.engine)
@@ -62,3 +84,4 @@ def create_app():
         }
 
     return app
+
