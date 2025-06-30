@@ -122,18 +122,19 @@ Top contributors:
 MIT License. See `LICENSE` for details.
 
 ## Live Demo
-[WareTracker Live Demo]()
+[WareTracker Live Demo](https://waretracker.netlify.app/)
 
 ## Contact
 
 1.Emmanuel Ndiritu  
 GitHub: [@Emananii](https://github.com/Emananii)  
 
-2.James Muchai
+2.Lenah Mbae
+GitHub:[@lenah-mbae](https://github.com/lenah-mbae)
+
+3.James Muchai
 GitHub:[@James-Muchai](https://github.com/James-Muchai)
 
-3.Lenah Mbae
-GitHub:[@lenah-mbae](https://github.com/lenah-mbae)
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
