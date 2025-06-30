@@ -1,24 +1,3 @@
-from flask import Flask
-from flask_migrate import Migrate
-from flask_cors import CORS
-from .models import db
-
-from .routes.suppliers import suppliers_bp
-from .routes.purchases import purchases_bp
-from .routes.products import product_bp
-from .routes.purchase_items import purchase_item_bp
-from .routes.categories import category_bp
-from .routes.stock_transfers import stock_transfer_bp
-from .routes.stock_transfer_items import stock_transfer_item_bp
-from .routes.business_locations import business_location_bp
-from .routes.dashboard import dashboard_bp
-
-from flasgger import Swagger
-
-import os
-
-migrate = Migrate()
-
 def create_app():
     app = Flask(__name__)
     app.config['SWAGGER'] = {
@@ -37,7 +16,7 @@ def create_app():
     }
     Swagger(app)
 
-    #Environment-aware DB config
+    # Environment-aware DB config
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
         'DATABASE_URL', 'sqlite:///warehouse.db'
     )
@@ -45,14 +24,26 @@ def create_app():
 
     db.init_app(app)
     migrate.init_app(app, db)
+    
+    with app.app_context():
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
 
-    CORS(app, origins = [
+        # Only create tables if 'products' (or any core table) doesn't exist
+        if not inspector.has_table("products"):
+            db.create_all()
+            print("✅ Database tables created.")
+        else:
+            print("ℹ️ Tables already exist. Skipping creation.")
+
+    # CORS settings
+    CORS(app, origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://waretracker.netlify.app"
     ])
 
-    
+    # Register blueprints
     app.register_blueprint(suppliers_bp)
     app.register_blueprint(purchases_bp)
     app.register_blueprint(product_bp)
